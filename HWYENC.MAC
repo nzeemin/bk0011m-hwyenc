@@ -11,22 +11,59 @@
 
 SCRHEI = 192.
 
-SCREEN = 140000
+SCREEN = 100000 + <32.*32.>	; Начало экрана 256 x 192
 
 ; Режимы для регистра управления памятью
-;         .___1___...00.00
-MMODE1 = ^B0101100100000000	; 2:5 - стр.2 в 040000-100000, стр.5 (экран) в 100000-140000
-MMODE2 = ^B0101110000000000	; 2:4 - стр.2 в 040000-100000, стр.4 в 100000-140000
+;          .___1___...00.00
+MMODE1 = ^B0011100100000000	; 3:5 - стр.3 в 040000-100000, стр.5 (экран) в 100000-140000
+MMODE2 = ^B0011110000000000	; 3:4 - стр.3 в 040000-100000, стр.4 в 100000-140000
+
+PXCONV = 001000			; Адрес таблицы конвертации пикселей
 
 ;------------------------------------------------------------------------------
 
 	.ASECT
 	.=002000
 START::
+	MTPS	#340			; disable all interruptions
 	MOV	SP, OSTACK		; Сохраняем начальное значение SP
 	MOV	#1000, SP
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 
-	JMP	LB0DE		; Start point
+; Создать таблицу PXCONV по адерсам 001000-002000, для конвертации пикселей
+	MOV	#002000, R2
+	MOV	#255., R3		; R3 бежит от 255. до 0
+1$:	CLR	R5			; в R5 будет готовое слово
+	MOV	#8., R4			; в R4 счётчик по разрядам
+	MOV	R3, R1
+2$:	ASR	R1			; 0-й бит идёт в C
+	ROR	R5			; забираем из C
+	ROR	R5
+	SOB	R4, 2$
+	MOV	R5, -(R2)		; записываем результат
+	SOB	R3, 1$
+	CLR	-(R2)			; 0-й элемент
+
+; Вывести надпись PRESS ANY KEY
+;	MOV	#LB839, R3		; "PRESS ANY KEY"
+;	CALL	LB890
+;TODO: Ожидание нажатой клавиши
+
+	CALL	LA3D3			; Prepare screen and indicators
+	;CALL	L9423			; Preparing objects tables
+	;CALL	L92CE			; Prepare objects for the current Zone
+	;CALL	L95EF			; Show the screen
+
+;	CALL	LB33C			; "HIGHWAY ENCOUNTER" big sign
+
+	MOV	#LA4C7, R3		; "DEMO MODE"
+	CALL	LB890
+
+;	CALL	LA291			; Prepare tables and show the starting animation
+
+DEAD:	BR DEAD
+
+;	JMP	LB0DE		; Start point
 
 FINISH:
 	MOV	OSTACK, SP		; Восстанавливаем стек
@@ -40,6 +77,19 @@ PAUSE:	; Pause to let PPU finish the previous commands
 1$:	NOP
 	SOB	R5, 1$
 RETN:	RETURN
+
+; Подпрограмма очистки экрана
+CLRSCR:
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#100000, R2
+	MOV	#2048., R3
+1$:	CLR	(R2)+
+	CLR	(R2)+
+	CLR	(R2)+
+	CLR	(R2)+
+	SOB	R3, 1$
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	RETURN
 
 ;------------------------------------------------------------------------------
 
@@ -569,10 +619,9 @@ L911F:				; 911F	LD A,$BF
 	CALL	LB890		; 912A	CALL $B890	Print text
 	CALL	WTKEY			; Wait for any key pressed
 ; Clear the "PAUSE MODE" sign
-	MOV	#133416, R2		; Addr on the screen
-	MOV	#1200, R1		; 8 lines on the screen
-1$:	MOV	R2, @#176640		; set screen address
-	CLR	@#176642		; clear
+	MOV	#133416, R2		; Addr on the screen ;TODO BK
+	MOV	#<8.*32.>, R1		; 8 lines on the screen
+1$:	CLR	(R2)+			; clear
 	INC	R2
 	SOB	R1, 1$
 
@@ -622,10 +671,12 @@ L918C:	MOV	L8F1A, R3	; 918C	LD HL,($8F1A)	get Mission Time low counter
 	BIC	#177421, R0
 	SWAB	R0
 	MOV	#7, R1		; 91A6	LD B,$07	7 lines
-L91A8:	MOV	R2, @#176640
-	MOV	R0, @#176642	; 91A8	LD (HL),A
-	ADD	#80., R2	; 91A9	INC H		next line
+
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+L91A8:	MOV	R0, (R2)	; 91A8	LD (HL),A
+	ADD	#64., R2	; 91A9	INC H		next line
 	SOB	R1, L91A8	; 91AA	DJNZ $91A8
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 				; 91AC	LD A,L
 	MOVB	L8F19, R0	; 91AD	CP $D4
 	BNE	L91C0		; 91AF	JP NC,$91C0
@@ -669,23 +720,24 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	MOVB	R0, L8F17	; 91FE	LD ($8F17),A
 	PUSH	R3		; 9201	PUSH HL
 ; Put white hat on the new Main Vorton indicator
+;TODO BK
 	MOV	#137072, R2
 	MOV	#<L6020+546>, R3	; Addr in the indicator panel sprite
 	ADD	R1, R2
 	MOV	#4., R1			; 4 lines
-1$:	MOV	R2, @#176640
+1$:	;MOV	R2, @#176640
 	CLR	R0
 	BISB	(R3), R0
 	SWAB	R0
 	BISB	(R3)+, R0
-	MOV	R0, @#176642
-	INC	R2	
-	MOV	R2, @#176640
+	;MOV	R0, @#176642
+	INC	R2
+	;MOV	R2, @#176640
 	CLR	R0
 	BISB	(R3), R0
 	SWAB	R0
 	BISB	(R3), R0
-	MOV	R0, @#176642
+	;MOV	R0, @#176642
 	ADD	#<80.-1>, R2
 	ADD	#<32.-1>, R3
 	SOB	R1, 1$
@@ -856,9 +908,9 @@ L9396:	MOVB	(R3)+, R2	; 9396	LD E,(HL)	взяли номер спрайта
 L93A9:	MOVB	(R3)+, R0	; 93A9	LD A,(HL)	получаем 8 пикселов спрайта
 	BIC	#177400, R0
 	SWAB	R0
-	MOV	R2, @#176640	; 93AA	LD (DE),A	write into screen
-	MOV	R0, @#176642	; 93AB	INC HL
-	ADD	#80., R2	; 93AC	INC D		next line
+				; 93AA	LD (DE),A	write into screen
+	MOV	R0, (R2)	; 93AB	INC HL		write into screen
+	ADD	#32., R2	; 93AC	INC D		next line
 	SOB	R1, L93A9	; 93AD	DJNZ $93A9	repeat
 	POP	R3		; 93AF	POP HL
 				; 93B0	INC HL
@@ -1318,8 +1370,7 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 ; NOTE: 9799..97A4 code fills attributes, removed
 ;
 ; Draw screen D905 on the real screen
-	MOV	#176640, R4	; Адрес порта адреса косвенной записи УКНЦ
-	MOV	#176642, R5	; Адрес порта данных косвенной записи УКНЦ
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
 	MOV	#<LD900+5>, R3	; 97A6	LD HL,$D905
 	MOV	#104304, R2	; 97A9	LD DE,$4000	Screen address
 	MOV	#144., R0	; Number of lines to copy
@@ -1329,13 +1380,12 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 	BISB	(R3), R0
 	SWAB	R0
 	BISB	(R3)+, R0
-	MOV	R2, (R4)	; Set address
-	MOV	R0, (R5)	; Write into the screen
-	INC	R2
+	MOV	R0, (R2)+	; Write into the screen
 	SOB	R1, 20$
-	ADD	#<80.-32.>, R2	; Next line
+	;ADD	#<80.-32.>, R2	; Next line
 	POP	R0
 	SOB	R0, 10$
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 ; Копирование подготовленного теневого экрана на второй теневой экран
 	MOV	#<LD900+1005>, R3	; 97DF	LD HL,$DB05
 	MOV	#LEB00, R2	; 97E2	LD DE,$EB00
@@ -1900,16 +1950,16 @@ L9ABB:	MOVB	(R3), R0	; 9ABB	LD A,(HL)	|  <
 	BIC	#177400, R0			;	|  |
 	SWAB	R0
 	BISB	(R3), R0
-	MOV	R2, @#176640	; 9ABC	LD (DE),A	|  |  косвенный адрес
-	MOV	R0, @#176642			;	|  |  выводим на экран
-	SUB	#80., R2	; 9ABD	DEC D		|  |  к предыдущей строке экрана
+				; 9ABC	LD (DE),A	|  |
+	MOV	R0, (R2)			;	|  |  выводим на экран
+	SUB	#32., R2	; 9ABD	DEC D		|  |  к предыдущей строке экрана
 				; 9ABE	LD A,$E0	|  |
 	SUB	#32., R3	; 9AC0	ADD A,L		|  |  к предыдущей строке теневого экрана
 				; 9AC1	LD L,A		|  |
 	SOB	R1, L9ABB	; 9AC2	DJNZ $9ABB	|  продолжение цикла по строкам
 				; 9AC4	LD A,D	        |
-	ADD	#640., R2	; 9AC5	ADD A,$08	|  на 8. экранных строк ниже
-	ADD	#256., R3	; 9AC7	LD D,A	        | 
+	ADD	#256., R2	; 9AC5	ADD A,$08	|  на 8. экранных строк ниже
+	ADD	#256., R3	; 9AC7	LD D,A	        |
 	MOV	R5, R1		; 9AC8	LD B,IXl	|  restore B
 L9ACA:						;	|
 	DEC	R3		; 9ACA	DEC L		|
@@ -2061,27 +2111,28 @@ L9BE2:	MOVB	L8F16, R0	; 9BE2	LD A,($8F16)	get the counter
 	MOV	#177777, R0	; 9BF8	LD A,$42
 				; 9BFA	JR $9BD9        show movement indication
 ; Update Lasertron movement indicator
+;TODO BK
 L9BD9:	MOV	#177777, R5
 	XOR	R5, R0			; inverse R0
 	MOV	#136524, R2		; Address on the screen
 	MOV	#<L6020+420>, R3
-	MOV	#176642, R4
+	;MOV	#176642, R4
 	MOV	#8., R1
-1$:	MOV	R2, @#176640		; set address
+1$:	;MOV	R2, @#176640		; set address
 	MOVB	(R3)+, R5
 	BIC	#177400, R5
 ;	SWAB	R5
 ;	BISB	(R3)+, R5
 	BIC	R0, R5
-	MOV	R5, (R4)		; write to screen
+	;MOV	R5, (R4)		; write to screen
 	INC	R2
-	MOV	R2, @#176640		; set address
+	;MOV	R2, @#176640		; set address
 	MOVB	(R3), R5
 	BIC	#177400, R5
 ;	SWAB	R5
 ;	BISB	(R3), R5
 	BIC	R0, R5
-	MOV	R5, (R4)		; write to screen
+	;MOV	R5, (R4)		; write to screen
 	ADD	#<80.-1>, R2
 	ADD	#<32.-1>, R3
 	SOB	R1, 1$
@@ -2186,6 +2237,7 @@ L9D06:	BISB	#10, (R3)	; 9D06	SET 3,(HL)
 	JMP	L9E1A		; 9D08	JP $9E1A        next record by IX
 L9D0B:	BISB	#100, (R3)	; 9D0B	SET 6,(HL)
 ; Hide Vorton in the indicator area
+;TODO BK
 	MOV	R4, R0		; 9D0D	LD HL,$5A86	attributes
 	SUB	#L8A00, R0	; 9D10	LD A,IXl
 	ASH	#-3, R0		; 9D12	SRL A
@@ -2196,11 +2248,11 @@ L9D0B:	BISB	#100, (R3)	; 9D0B	SET 6,(HL)
 	MOV	#24., R1 	; 9D1A	LD B,$03
 				; 9D1C	LD DE,$001F
 				; 9D1F	XOR A
-L9D20:	MOV	R0, @#176640	; 9D20	LD (HL),A
-	CLR	@#176642  
+L9D20:	;MOV	R0, @#176640	; 9D20	LD (HL),A
+	;CLR	@#176642
 	INC	R0		; 9D21	INC L
-	MOV	R0, @#176640
-	CLR	@#176642	; 9D22	LD (HL),A
+	;MOV	R0, @#176640
+	;CLR	@#176642	; 9D22	LD (HL),A
 	ADD	#<80.-1>, R0	; 9D23	ADD HL,DE
 	SOB	R1, L9D20	; 9D24	DJNZ $9D20
 	JMP	L9E1A		; 9D26	JP $9E1A	next record by IX
@@ -2711,6 +2763,7 @@ LA07B:				; A07B	LD A,B
 LKEY:	.WORD	0			; Last key pressed
 
 ; Routine: Bullet died, update Power indicator
+;TODO BK
 LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
 	PUSH	R2
 	PUSH	R3
@@ -2721,13 +2774,13 @@ LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
 	ADD	R2, R3
 	ADD	#136647, R2		; Address on the screen
 	MOV	#7., R1
-2$:	MOV	R2, @#176640
+2$:	;MOV	R2, @#176640
 	MOVB	(R3), R0
 	BIC	#177400, R0
 	SWAB	R0
 	BISB	(R3), R0
-	MOV	R0, @#176642
-	ADD	#80., R2		; next line
+	;MOV	R0, @#176642
+	ADD	#64., R2		; next line
 	ADD	#32., R3
 	SOB	R1, 2$
 	POP	R3
@@ -2879,12 +2932,13 @@ LA1CE:	MOVB	#22., (R2)	; A1CE	LD (HL),$16	set sprite = fireball
 				; A1E5	LD A,(HL)
 	MOVB	(R3), (R2)	; A1E6	LD (DE),A	copy movement flags byte
 ; Hide one Power column on the indicator
+;TODO BK
 	MOVB	L8F18, R0	; A1E7	LD A,($8F18)
 	ADD	#136647, R0		; Address on the screen
 	MOV	#7., R1
-2$:	MOV	R0, @#176640
-	CLR	@#176642
-	ADD	#80., R0		; next line
+2$:	;MOV	R0, @#176640
+	;CLR	@#176642
+	ADD	#64., R0		; next line
 	SOB	R1, 2$		; A1EF	DEC A
 	DECB	L8F18		; A1F0	LD ($8F18),A
 	MOV	#L8F15, R3	; A1F3	LD HL,$8F15
@@ -3168,18 +3222,15 @@ LA37A:	PUSH	R1		; A37A	PUSH BC	        <
 ; End of the DEMO MODE
 LA3A8:
 ; Paint the game screen with red
-	MOV	#176640, R4		; Адрес порта адреса косвенной записи УКНЦ
-	MOV	#176642, R5		; Адрес порта данных косвенной записи УКНЦ
-	MOV	#104304, R2		; Screen address
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#SCREEN, R2		; Screen address
 	MOV	#144., R0		; Number of lines to fill
 1$:	MOV	#32., R1		; Counter to loop thru the line
-	MOV	#177400, R3		; get byte
-2$:	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	R3, (R5)		; Write into the screen
-	INC	R2
+	MOV	#125252, R3		; get byte
+2$:	MOV	R3, (R2)+		; Write into the screen
 	SOB	R1, 2$
-	ADD	#<80.-32.>, R2		; to next line
 	SOB	R0, 1$			; continue loop by lines
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 ; Show the sign
 	MOV	#LA4D6, R3	; A3B7	LD HL,$A4D6	"THERE IS ONLY ONE WAY TO ENCOUNTER..."
 	CALL	LB890		; A3BA	CALL $B890	Print Text
@@ -3191,39 +3242,39 @@ LA3A8:
 
 ; Prepare screen and indicators
 LA3D3:
-;TODO: Очистка экрана
+	CALL	CLRSCR		; Очистка экрана
 ;TODO: Установить основную палитру
-	CALL	PAUSE		; подождём пока очистится экран
-;
+
+; Показываем панель индикаторов
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 2
 	MOV	#L6020, R3	; A3E0	LD HL,$6020
-	MOV	#135304, R2	; A3E3	LD DE,$5060
+	MOV	#<SCREEN+<164.*64.>>, R2	; A3E3	LD DE,$5060
 	MOV	#34., R0	; A3E6	LD A,$22
 				; A3E8	EX AF,AF'
 LA3E9:	MOV	#32., R1	; A3E9	LD BC,$0020
 				; A3EC	EX AF,AF'
 				; A3ED	PUSH DE
-1$:	MOV	R2, @#176640
-	MOVB	(R3), R5	; A3EE	LDIR
-	BIC	#177400, R5
-	SWAB	R5
+1$:	CLR	R5		; A3EE	LDIR
 	BISB	(R3)+, R5
-	MOV	R5, @#176642
-	INC	R2
+	ASL	R5
+	MOV	PXCONV(R5), (R2)+		; Конвертируем пикселы по таблице
 	SOB	R1, 1$
 				; A3F0	POP DE
 	DEC	R0		; A3F1	DEC A
 	BEQ	LA403		; A3F2	JR Z,$A403
 				; A3F4	EX AF,AF'
-	ADD	#<80.-32.>, R2	; A3F5	INC D
-		; A3F6	LD A,D
-		; A3F7	CP $58
-	BR	LA3E9	; A3F9	JR C,$A3E9
-		; A3FB	LD D,$50
-		; A3FD	LD A,$20
-		; A3FF	ADD A,E
-		; A400	LD E,A
-		; A401	JR $A3E9
-LA403:				; A403	LD DE,$5A60	Screen attribute area address
+	;ADD	#<80.-32.>, R2	; A3F5	INC D
+				; A3F6	LD A,D
+				; A3F7	CP $58
+	BR	LA3E9		; A3F9	JR C,$A3E9
+				; A3FB	LD D,$50
+				; A3FD	LD A,$20
+				; A3FF	ADD A,E
+				; A400	LD E,A
+				; A401	JR $A3E9
+LA403:
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+				; A403	LD DE,$5A60	Screen attribute area address
 				; A406	LD BC,$00A0
 				; A409	LDIR	        Fill attributes
 	CALL	LA42B		; A40B	CALL $A42B	Show score
@@ -3246,12 +3297,14 @@ LA41E:	INCB	R0		; A41E	INC A
 LA428:	MOVB	R0, (R3)	; A428	LD (HL),A
 	SOB	R1, LA414	; A429	DJNZ $A414
 ; Routine entry point: Show score
-LA42B:	MOV	#137001, R2	; A42B	LD DE,$529D	address on the screen
+LA42B:	MOV	#<SCREEN+<160.*64.>+58.>, R2	; A42B	LD DE,$529D	address on the screen
 	MOV	#<LA480+6>, R1	; A42E	LD BC,$A486	Score
-LA431:	MOVB	(R1), R0	; A431	LD A,(BC)
+LA431:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOVB	(R1), R0	; A431	LD A,(BC)
 	BIC	#177400, R0
 	CMPB	R0, #377	; A432	CP $FF
 	BNE	1$		; A434	RET Z
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 	RETURN
 1$:	PUSH	R1		; A435	PUSH BC
 	MOV	R0, R1		; A436	LD C,A
@@ -3265,12 +3318,11 @@ LA431:	MOVB	(R1), R0	; A431	LD A,(BC)
 	MOV	R2, R5		; A441	LD C,D
 	MOV	#5, R1		; A442	LD B,$05	5 lines
 LA444:	MOVB	(R3), R0	; A444	LD A,(HL)
-	BIC	#177400, R0
+	BIC	#177400, R0	;TODO BK
 	SWAB	R0
 	BISB	(R3)+, R0
-	MOV	R2, @#176640
-	MOV	R0, @#176642	; A445	LD (DE),A
-	ADD	#80., R2	; A446	INC D		next line
+	MOV	R0, (R2)	; A445	LD (DE),A
+	ADD	#64., R2	; A446	INC D		next line
 				; A447	INC HL
 	SOB	R1, LA444	; A448	DJNZ $A444
 	MOV	R5, R2		; A44A	LD D,C
@@ -3306,7 +3358,7 @@ LA46C:	POP	R1		; A46C	POP BC
 		; A473	LD BC,$0007
 		; A476	LDIR
 LA478:
-	MOV	#137001, R2	; A478	LD DE,$51DD	address on the screen
+	MOV	#<SCREEN+<172.*64.>+58.>, R2	; A478	LD DE,$51DD	address on the screen
 	MOV	#<LA480+14.>, R1	; A47B	LD BC,$A48E	score
 	BR	LA431		; A47E	JR $A431
 
@@ -3323,7 +3375,7 @@ LA490:	.BYTE	177,177,177,177,177	; 000
 	.BYTE	101,135,101,135,101	; 011 8
 	.BYTE	101,135,101,137,101	; 012 9
 	.EVEN
-LA4C7:	.WORD	133416
+LA4C7:	.WORD	<SCREEN+<156.*64.>+21.>
 	.BYTE	130,312,124,125,135,137,115,135,137,124,125,312,376	; DEMO MODE
 	.EVEN
 LA4D6:	.WORD	113717
@@ -3716,8 +3768,7 @@ GETKEY:	TSTB	@#177560	; есть символ?
 LB0DE:
 		; B0DE	LD BC,$F300
 LB0E1:
-;TODO: Очистить экран
-	CALL	PAUSE		; подождём пока очистится экран
+	CALL	CLRSCR		; Очистить экран
 		; B0E1	LD HL,$785A
 		; B0E4	CALL $B203	Sound
 LB0E7:		; B0E7	XOR A
@@ -3751,8 +3802,7 @@ LB13C:
 	CMP	R0, #065	; '5' ?
 	BNE	2$
 ; Show Info Screen
-;TODO: Очистить экран
-	CALL	PAUSE		; подождём пока очистится экран
+	CALL	CLRSCR		; Очистить экран
 	JMP	LB4D0		; B1BC	JP $B4D0	Show Info Screen
 2$:	CMP	R0, #066	; '6' ?
 	BNE	3$
@@ -3902,47 +3952,21 @@ LB33C:	MOV	#LB499, R3	; B33C	LD HL,$B499	"HIGHWAY ENCOUNTER" pixels address
 LB39A:	;STUB
 ; Copy shadow screen to the real screen, 256. x 155. pixels
 LB3A9:
-	MOV	#176640, R4		; Адрес порта адреса косвенной записи УКНЦ
-	MOV	#176642, R5		; Адрес порта данных косвенной записи УКНЦ
-	MOV	#<104304+2640>, R2	; Address on the real screen = game screen start + 18. lines
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#<SCREEN+1100>, R2	; Address on the real screen = game screen start + 18. lines
 
 	MOV	#<LDBC0+576.>, R3	; Copy from
-	MOV	#<192.-18.-19.>, R0	; Number of lines to copy
-1$:	PUSH	R0
-	MOV	#8., R1			; Counter to loop thru the line
-2$:	CLR	R0			;
-	BISB	(R3), R0		; get byte
-	SWAB	R0
-	BISB	(R3)+, R0
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	R0, (R5)		; Write into the screen
-	INC	R2
-	CLR	R0			;
-	BISB	(R3), R0		; get byte
-	SWAB	R0
-	BISB	(R3)+, R0
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	R0, (R5)		; Write into the screen
-	INC	R2
-	CLR	R0			;
-	BISB	(R3), R0		; get byte
-	SWAB	R0
-	BISB	(R3)+, R0
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	R0, (R5)		; Write into the screen
-	INC	R2
-	CLR	R0			;
-	BISB	(R3), R0		; get byte
-	SWAB	R0
-	BISB	(R3)+, R0
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	R0, (R5)		; Write into the screen
-	INC	R2
+	MOV	#<192.-18.-19.>, R4	; Number of lines to copy
+1$:	MOV	#4., R1			; Counter to loop thru the line
+2$:	.REPT	8.			; Loop unroll x8
+	CLR	R0
+	BISB	(R3)+, R0		; get byte
+	ASL	R0
+	MOV	PXCONV(R0), (R2)+	; Pixel conversion / Write into the screen
+	.ENDR
 	SOB	R1, 2$
-	ADD	#<80.-32.>, R2		; to next line
-	POP	R0
-	SOB	R0, 1$			; continue loop by lines
-
+	SOB	R4, 1$			; continue loop by lines
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 	RETURN
 
 ; Routine for Title Screen
@@ -4101,6 +4125,7 @@ LB4D0:	MOVB	#6, LB4CF		; B4D0	LD A,$06
 
 ; Print Small Font Signs on the Info Screen
 ; NOTE: I removed the second pass used to fill attributes
+;TODO BK
 LB52D:	MOV	#LB62C, R3	; B52D	LD HL,$B62C	Info Screen Small Font Signs
 				; B530	PUSH HL
 LB531:	MOV	(R3)+, R2	; B531	LD D,(HL)
@@ -4160,46 +4185,46 @@ LB57C:	POP	R2		; B57C	POP DE
 	PUSH	R2		; B586	PUSH DE
 	MOV	R3, R2		; B587	EX DE,HL
 	MOV	(SP), R3
-	MOV	R3, @#176640   		; Устанавливаем косвенный адрес
-	CLRB	@#176642	; B588	LD (HL),$00
-	ADD	#80., R3	; B58A	INC H		next line
-	MOV	R3, @#176640
-	CLRB	@#176642	; B58B	LD (HL),$00
-	ADD	#80., R3	; B58D	INC H		next line
+	;MOV	R3, @#176640   		; Устанавливаем косвенный адрес
+	;CLRB	@#176642	; B588	LD (HL),$00
+	ADD	#64., R3	; B58A	INC H		next line
+	;MOV	R3, @#176640
+	;CLRB	@#176642	; B58B	LD (HL),$00
+	ADD	#64., R3	; B58D	INC H		next line
 	MOVB	#5, R1		; B58E	LD B,$05
 LB590:	MOVB	(R2)+, R0	; B590	LD A,(DE)
 	ASH	#4, R0		; B591	SRL A
 				; B593	SRL A
 				; B595	SRL A
 				; B597	SRL A
-	MOV	R3, @#176640   		; Устанавливаем косвенный адрес
-	BIS	R0, @#176642	; B599	OR (HL)
+	;MOV	R3, @#176640   		; Устанавливаем косвенный адрес
+	;BIS	R0, @#176642	; B599	OR (HL)
 				; B59A	LD (HL),A
 	;INC	R2		; B59B	INC DE
-	ADD	#80., R3	; B59C	INC H		next line
+	ADD	#64., R3	; B59C	INC H		next line
 	SOB	R1, LB590	; B59D	DJNZ $B590
-	MOV	R3, @#176640   		; Устанавливаем косвенный адрес
-	CLRB	@#176642	; B59F	LD (HL),$00
+	;MOV	R3, @#176640   		; Устанавливаем косвенный адрес
+	;CLRB	@#176642	; B59F	LD (HL),$00
 	BR	LB5B4		; B5A1	JR $B5B4
 LB5A3:	INC	R2		; B5A3	INC DE
 	PUSH	R2		; B5A4	PUSH DE
-	MOV	R2, @#176640   		; Устанавливаем косвенный адрес
-	CLR	@#176642	; B5A5	XOR A
+	;MOV	R2, @#176640   		; Устанавливаем косвенный адрес
+	;CLR	@#176642	; B5A5	XOR A
 				; B5A6	LD (DE),A
 	ADD	#80., R2	; B5A7	INC D		next line
-	MOV	R2, @#176640   		; Устанавливаем косвенный адрес
-	CLR	@#176642	; B5A8	LD (DE),A
+	;MOV	R2, @#176640   		; Устанавливаем косвенный адрес
+	;CLR	@#176642	; B5A8	LD (DE),A
 	ADD	#80., R2	; B5A9	INC D		next line
 	MOVB	#5, R1		; B5AA	LD B,$05
 LB5AC:	CLR	R0		; B5AC	LD A,(HL)
 	BISB	(R3)+, R0
-	MOV	R2, @#176640   		; Устанавливаем косвенный адрес
-	MOV	R0, @#176642	; B5AD	LD (DE),A
+	;MOV	R2, @#176640   		; Устанавливаем косвенный адрес
+	;MOV	R0, @#176642	; B5AD	LD (DE),A
 				; B5AE	INC HL
 	ADD	#80., R2	; B5AF	INC D		next line
 	SOB	R1, LB5AC	; B5B0	DJNZ $B5AC
-	MOV	R2, @#176640   		; Устанавливаем косвенный адрес
-	CLR	@#176642	; B5B2	XOR A
+	;MOV	R2, @#176640   		; Устанавливаем косвенный адрес
+	;CLR	@#176642	; B5B2	XOR A
 				; B5B3	LD (DE),A
 LB5B4:	POP	R2		; B5B4	POP DE
 	POP	R1		; B5B5	POP BC
@@ -4292,7 +4317,7 @@ LB7B5:	.WORD	111314
 	.WORD	105510
 	.BYTE	130,212,123,134,121,143,143,131,126,131,125,124,115,131,136,126 ; CLASSIFIED
 	.BYTE	137,142,135,121,144,131,137,136,212,377				; INFORMATION
-LB839:	.WORD	141107
+LB839:	.WORD	SCREEN+<148.*148.>+8.
 	.BYTE	132,212,140,142,125,143,143,115,121,136,151,115,133,125,151,115	; PRESS ANY KEY
 	.BYTE	147,130,125,136,115,142,125,121,124,151,212,376			; WHEN READY
 	.EVEN
@@ -4301,8 +4326,7 @@ LB839:	.WORD	141107
 ;NOTE: I removed the first pass needed to fill in screen attributes
 ;NOTE: I added even address alignment after byte 377
 LB890:
-	MOV	#176640, R4		; Адрес порта адреса косвенной записи УКНЦ
-	MOV	#176642, R5		; Адрес порта данных косвенной записи УКНЦ
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
 LB8BB:	MOV	(R3)+, R2	; B8BB	LD D,(HL)
 				; B8BC	INC HL
 				; B8BD	LD E,(HL)
@@ -4312,7 +4336,8 @@ LB8C0:	MOVB	(R3)+, R0	; B8C0	LD A,(HL)
 	BIC    	#177400, R0	; B8C1	INC HL
 	CMP	R0, #254.	; B8C2	CP $FE
 	BLO	LB8C9		; B8C4	JR C,$B8C9
-	BNE	1$	
+	BNE	1$
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 	RETURN                  ; B8C6	RET Z
 1$:	BIT	#1, R3
 	BEQ	LB8BB
@@ -4331,25 +4356,25 @@ LB8C9:	BIC	#177700, R0	; B8C9	AND $3F
 				; B8D7	ADD HL,BC
 	PUSH	R2		; B8D8	PUSH DE
 				; B8D9	XOR A
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	#000, (R5)	; B8DA	LD (DE),A	write to the screen
+	CLR	(R2)		; B8DA	LD (DE),A	write to the screen
 				; B8DB	LD A,$7F
-	ADD	#000120, R2	; B8DD	INC D		next line
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	#000177, (R5)	; B8DE	LD (DE),A	write to the screen
-	ADD	#000120, R2	; B8DF	INC D		next line
+	ADD	#64., R2	; B8DD	INC D		next line
+	MOV	#077577, (R2)	; B8DE	LD (DE),A	write to the screen
+	ADD	#64., R2	; B8DF	INC D		next line
 	MOV	#5, R1		; B8E0	LD B,$05	counter = 5
-LB8E2:	MOVB	(R3)+, R0	; B8E2	LD A,(HL)
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	R0, (R5)	; B8E3	LD (DE),A	write to the screen
-	ADD	#000120, R2	; B8E4	INC D		next line
+LB8E2:	CLR	R0
+	BISB	(R3)+, R0	; B8E2	LD A,(HL)
+	ASL	R0
+	MOV	PXCONV(R0), R0		; Конвертируем пикселы по таблице
+	MOV	R0, (R2)	; B8E3	LD (DE),A	write to the screen
+	ADD	#64., R2	; B8E4	INC D		next line
 				; B8E5	INC HL
 	SOB	R1, LB8E2	; B8E6	DJNZ $B8E2	repeat
 				; B8E8	LD A,$7F
-	MOV	R2, (R4)		; Устанавливаем косвенный адрес
-	MOV	#000177, (R5)	; B8EA	LD (DE),A	write to the screen
+	MOV	#077577, (R2)	; B8EA	LD (DE),A	write to the screen
 	POP	R2		; B8EB	POP DE
 	INC	R2		; B8EC	INC DE		next position on the screen
+	INC	R2
 	POP	R3		; B8ED	POP HL
 	BR	LB8C0		; B8EE	JR $B8C0
 
