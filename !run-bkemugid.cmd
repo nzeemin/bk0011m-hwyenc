@@ -1,5 +1,11 @@
 
-del x-bkemugid/Img/ANDOS.IMG
+del x-bkemugid\Img\ANDOS.IMG
+@if exist "x-bkemugid\Img\ANDOS.IMG" (
+  echo.
+  echo ####### FAILED to delete old disk image file #######
+  exit /b
+)
+
 copy "x-bkemugid\Img\ANDOS_.IMG " "x-bkemugid\Img\ANDOS.IMG"
 bkdecmd a x-bkemugid/Img/ANDOS.IMG HWYENC.BIN
 bkdecmd a x-bkemugid/Img/ANDOS.IMG HWYSCR.LZS

@@ -11,7 +11,8 @@
 
 SCRHEI = 192.
 
-SCREEN = 100000 + <32.*32.>	; Начало экрана 256 x 192
+SCREEN = 100000 + <26.*64.>	; Начало экрана 256 x 192
+SCRIND = SCREEN + <160.*64.>	; Начало панели индикаторов
 
 ; Режимы для регистра управления памятью
 ;          .___1___...00.00
@@ -50,16 +51,24 @@ START::
 ;TODO: Ожидание нажатой клавиши
 
 	CALL	LA3D3			; Prepare screen and indicators
-	;CALL	L9423			; Preparing objects tables
+	CALL	L9423			; Preparing objects tables
 	;CALL	L92CE			; Prepare objects for the current Zone
-	;CALL	L95EF			; Show the screen
+	CALL	L95EF			; Show the screen
 
+;	CALL	CLRSCR
+;	CALL	LB2DA			; Prepare shadow screen
 ;	CALL	LB33C			; "HIGHWAY ENCOUNTER" big sign
-
-	MOV	#LA4C7, R3		; "DEMO MODE"
-	CALL	LB890
+;	MOV	#LB21E, R3		; строка
+;	CALL	LB890
 
 ;	CALL	LA291			; Prepare tables and show the starting animation
+
+;	MOV	#<L94F9+12.>, R3	; 9373	LD HL,$94F9	адрес списка с индексами спрайтов для больших цифр
+;	MOV	#L95E3, R4	; 937F	LD IX,$95E3	адрес массива адресов на экране для цифр ZONE
+;	CALL	L9394		; 9383	CALL $9394	show first ZONE digit
+
+	MOV	#L8FB0, R3		; string
+	CALL	LB890
 
 DEAD:	BR DEAD
 
@@ -619,7 +628,7 @@ L911F:				; 911F	LD A,$BF
 	CALL	LB890		; 912A	CALL $B890	Print text
 	CALL	WTKEY			; Wait for any key pressed
 ; Clear the "PAUSE MODE" sign
-	MOV	#133416, R2		; Addr on the screen ;TODO BK
+	MOV	#<SCREEN+<148.*64.>>, R2	; Addr on the screen
 	MOV	#<8.*32.>, R1		; 8 lines on the screen
 1$:	CLR	(R2)+			; clear
 	INC	R2
@@ -662,7 +671,7 @@ L918C:	MOV	L8F1A, R3	; 918C	LD HL,($8F1A)	get Mission Time low counter
 	MOVB	R0, L8F19	; 91A2	LD ($8F19),A
 	MOV	R0, R2		; 91A5	XOR A
 	ASH	#-3, R2		; Divide by 8.
-	ADD	#141127, R2	; Screen address Mission Time
+	ADD	#<SCREEN+<160.*64.>+28.>, R2	; Screen address Mission Time ;TODO BK
 	BIC	#177770, R0
 	MOV	R0, R4
 	SUB	#7, R4
@@ -755,21 +764,21 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	CALL	L95EF		; 922C	CALL $95EF	Show the screen
 	JMP	L910A		; 922F	JP $910A	continue main loop
 
-L9232:	.WORD	105505
+L9232:	.WORD	<SCREEN+<64.*64.>+28.>
 	.BYTE	131,212,135,131,143,143,131,137,136,115,121,122,137,142,144,125,124,212,376,000  ; "MISSION ABORTED"
 	.EVEN
-L9247:	.WORD	115116
+L9247:	.WORD	<SCREEN+<56.*64.>+20.>
 	.BYTE	130,212,115,144,137,137,115,134,121,144,125,115,212,377  ; "TOO LATE"
-	.WORD	116312
+	.WORD	<SCREEN+<64.*64.>+12.>
 	.BYTE	131,212,135,131,143,143,131,137,136,115,144,125,142,135,131,136,121,144,125,124,212,376  ; "MISSION TERMINATED"
-L926F:	.WORD	113717
+L926F:	.WORD	<SCREEN+<48.*64.>+22.>
 	.BYTE	130,312,127,121,135,125,115,137,146,125,142,312,377,000  ; "GAME OVER"
-	.WORD	116316
+	.WORD	<SCREEN+<64.*64.>+20.>
 	.BYTE	131,212,121,134,134,115,146,137,142,144,137,136,143,212,377,000  ; "ALL VORTONS"
-	.WORD	117516
+	.WORD	<SCREEN+<72.*64.>+20.>
 	.BYTE	131,212,115,124,125,143,144,142,137,151,125,124,115,212,376,000  ; "DESTROYED"
 
-L92A0:	.WORD	133415
+L92A0:	.WORD	<SCREEN+<148.*64.>+20.>
 	.BYTE	131,312,140,121,145,143,125,115,135,137,124,125,312,376  ; "PAUSE MODE"
 	.EVEN
 
@@ -892,31 +901,34 @@ L936F:	MOV	R1, R0		; 936F	LD A,B		working with upper digit
 ; Procedure: Draw digit with size of 16x24 pixels into the ZONE indicator
 ; R3 = адрес массива из 6-ти номеров спрайтов 8x8
 ; R4 = адрес массива из 6-ти адресов на экране
-L9394:	MOV	#6, R5		; 9394	LD C,$06	нужно вывести 6. спрайтов
+L9394:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#6, R5		; 9394	LD C,$06	нужно вывести 6. спрайтов
 L9396:	MOVB	(R3)+, R2	; 9396	LD E,(HL)	взяли номер спрайта
 	PUSH	R3		; 9397	PUSH HL
 				; 9398	LD D,$00
 	MOV	R2, R3		; 939A	LD HL,$953B
 				; 939D	EX DE,HL
-	ASH	#3, R3		; 939E	ADD HL,HL
-				; 939F	ADD HL,HL
-				; 93A0	ADD HL,HL	*8.
+	ADD	R3, R3		; 939E	ADD HL,HL
+	ADD	R3, R3		; 939F	ADD HL,HL
+	ADD	R3, R3		; 93A0	ADD HL,HL	*8.
 	ADD	#L953B, R3	; 93A1	ADD HL,DE	получили адрес спрайта 8x8
 	MOV	(R4)+, R2	; 93A2	LD E,(IX+$00)	address on the screen
 				; 93A5	LD D,$50
 	MOV	#8., R1		; 93A7	LD B,$08	counter = 8.
-L93A9:	MOVB	(R3)+, R0	; 93A9	LD A,(HL)	получаем 8 пикселов спрайта
-	BIC	#177400, R0
-	SWAB	R0
-				; 93AA	LD (DE),A	write into screen
+L93A9:	CLR	R0
+	BISB	(R3)+, R0	; 93A9	LD A,(HL)	получаем 8 пикселов спрайта
+	ASL	R0		; 93AA	LD (DE),A	write into screen
+	MOV	PXCONV(R0), R0		; Convert pixels
+	ASL	R0
 	MOV	R0, (R2)	; 93AB	INC HL		write into screen
-	ADD	#32., R2	; 93AC	INC D		next line
+	ADD	#64., R2	; 93AC	INC D		next line
 	SOB	R1, L93A9	; 93AD	DJNZ $93A9	repeat
 	POP	R3		; 93AF	POP HL
 				; 93B0	INC HL
 				; 93B1	INC IX
 				; 93B3	DEC C
 	SOB	R5, L9396	; 93B4	JR NZ,$9396	repeat
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 	RETURN			; 93B6	RET
 
 ; We come here after we drawn ZONE digits
@@ -1056,11 +1068,11 @@ L94A4:	MOVB	(R4), R0	; 94A4	LD A,(IX+$00)
 	ADD	R2, R3		; 94B7	ADD HL,DE
 	ASR	R3		; 94B8	SRL H
 				; 94BA	RR L
-	ASH	#5, R3		; 94BC	ADD HL,HL
-				; 94BD	ADD HL,HL
-				; 94BE	ADD HL,HL
-				; 94BF	ADD HL,HL
-				; 94C0	ADD HL,HL
+	ADD	R3, R3		; 94BC	ADD HL,HL
+	ADD	R3, R3		; 94BD	ADD HL,HL
+	ADD	R3, R3		; 94BE	ADD HL,HL
+	ADD	R3, R3		; 94BF	ADD HL,HL
+	ADD	R3, R3		; 94C0	ADD HL,HL
 	MOV	R3, R2		; 94C1	EX DE,HL
 	MOV	#<LE900+5059.>, R3	; 94C2	LD HL,$FCC3
 				; 94C5	AND A
@@ -1097,14 +1109,49 @@ L94EE:	ADD	#16., R4	; 94EE	LD DE,$0010	next IX record
 	JMP	L944B		; 94F5	JP NZ,$944B	повтор цикла
 1$:	RETURN			; 94F8	RET
 
-;NOTE: Data block L94F9 -- Sprite indices for ZONE digits -- moved to SPRITE.MAC
+; Data block -- Sprite indices for ZONE digits
+L94F9:	.BYTE	001,004,010,017,020,022		; 0
+	.BYTE	000,006,000,017,000,023		; 1
+	.BYTE	002,004,012,015,020,024		; 2
+	.BYTE	002,004,013,014,021,022		; 3
+	.BYTE	003,006,011,014,000,023		; 4
+	.BYTE	001,005,011,016,021,022		; 5
+	.BYTE	001,005,007,016,020,022		; 6
+	.BYTE	002,004,000,017,000,023		; 7
+	.BYTE	001,004,007,014,020,022		; 8
+	.BYTE	001,004,011,014,021,022		; 9
+; Data block: big digits sprites
+L953B:	.BYTE	000,000,000,000,000,000,000,000
+	.BYTE	000,374,372,366,016,016,016,016
+	.BYTE	000,374,370,360,000,000,000,000
+	.BYTE	000,000,002,006,016,016,016,016
+	.BYTE	000,077,137,157,160,160,160,160
+	.BYTE	000,077,037,017,000,000,000,000
+	.BYTE	000,000,100,140,160,160,160,160
+	.BYTE	016,006,372,374,372,006,016,016
+	.BYTE	016,006,002,000,002,006,016,016
+	.BYTE	016,006,372,374,370,000,000,000
+	.BYTE	000,000,370,374,372,006,016,016
+	.BYTE	000,000,370,374,370,000,000,000
+	.BYTE	160,140,137,077,137,140,160,160
+	.BYTE	160,140,137,077,037,000,000,000
+	.BYTE	000,000,037,077,137,140,160,160
+	.BYTE	160,140,100,000,100,140,160,160
+	.BYTE	016,016,016,016,366,372,374,000
+	.BYTE	000,000,000,000,360,370,374,000
+	.BYTE	160,160,160,160,157,137,077,000
+	.BYTE	160,160,160,160,140,100,000,000
+	.BYTE	000,000,000,000,017,037,077,000
+	.EVEN
+
 ; Data block
 L9536:	.BYTE	000,000,000,000,000
 	.EVEN
 ;NOTE: Data block L953B: big digits sprites -- moved to SPRITE.MAC
 ; Data block: Адреса на экране -- позиции спрайтов для цифр ZONE
-L95E3:	.WORD	136505,136506,137705,137706,141105,141106	; старшая цифра
-	.WORD	136507,136510,137707,137710,141107,141110	; младшая цифра
+SCRZNE = SCRIND + <8.*64.> + 2  ; Базовый адрес для цифр ZONE
+L95E3:	.WORD	<SCRZNE+0>,<SCRZNE+2>,<SCRZNE+1000>,<SCRZNE+1002>,<SCRZNE+2000>,<SCRZNE+2002>	; старшая цифра
+	.WORD	<SCRZNE+4>,<SCRZNE+6>,<SCRZNE+1004>,<SCRZNE+1006>,<SCRZNE+2004>,<SCRZNE+2006>	; младшая цифра
 
 ; Prepare shadow screen, show the screen
 L95EF:
@@ -1177,10 +1224,10 @@ L965D:	MOVB	#12., L9658	; 965D	LD A,$0C
 	MOVB	L8F00, R0	; 9662	LD A,($8F00)	Zone number
 	MOV	R0, R3		; 9665	LD H,$00
 				; 9667	LD L,A
-	ASH	#4, R3		; 9668	ADD HL,HL
-				; 9669	ADD HL,HL
-				; 966A	ADD HL,HL
-				; 966B	ADD HL,HL	HL = A * 16.
+	ADD	R3, R3		; 9668	ADD HL,HL
+	ADD	R3, R3		; 9669	ADD HL,HL
+	ADD	R3, R3		; 966A	ADD HL,HL
+	ADD	R3, R3		; 966B	ADD HL,HL	HL = A * 16.
 	MOV	R3, R2		; 966C	LD D,H
 				; 966D	LD E,L
 	ASL	R3		; 966E	ADD HL,HL
@@ -1227,9 +1274,9 @@ L969C:	MOVB	(R3), R2	; 969C	LD E,(HL)
 	BIC	#177400, R0
 	MOV	R0, R3		; 96AE	LD L,A
 				; 96AF	LD H,$00
-	ASH	#3, R3		; 96B1	ADD HL,HL
-				; 96B2	ADD HL,HL
-				; 96B3	ADD HL,HL	HL = A * 8.
+	ADD	R3, R3		; 96B1	ADD HL,HL
+	ADD	R3, R3		; 96B2	ADD HL,HL
+	ADD	R3, R3		; 96B3	ADD HL,HL	HL = A * 8.
 	ADD	#L7100, R3	; 96B4	LD DE,$7100	адрес блока паттернов
 				; 96B7	ADD HL,DE	в R3 получили адрес тайла
 	MOV	#8., R0		; 96B8	LD A,$08	счётчик строк = 8.
@@ -1299,9 +1346,9 @@ L9711:	MOVB	(R3), R2	; 9711	LD E,(HL)
 	BIC	#177400, R0
 	MOV	R0, R3		; 9723	LD L,A
 				; 9724	LD H,$00
-	ASH	#3, R3		; 9726	ADD HL,HL
-				; 9727	ADD HL,HL
-				; 9728	ADD HL,HL	HL = A * 8.
+	ADD	R3, R3		; 9726	ADD HL,HL
+	ADD	R3, R3		; 9727	ADD HL,HL
+	ADD	R3, R3		; 9728	ADD HL,HL	HL = A * 8.
 	ADD	#L7100, R3	; 9729	LD DE,$7100	адрес блока паттернов
 				; 972C	ADD HL,DE
 	MOV	#8., R0		; 972D	LD A,$08
@@ -1372,15 +1419,14 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 ; Draw screen D905 on the real screen
 	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
 	MOV	#<LD900+5>, R3	; 97A6	LD HL,$D905
-	MOV	#104304, R2	; 97A9	LD DE,$4000	Screen address
+	MOV	#SCREEN, R2	; 97A9	LD DE,$4000	Screen address
 	MOV	#144., R0	; Number of lines to copy
 10$:	PUSH	R0
 	MOV	#32., R1	; 32. bytes in line
 20$:	CLR	R0
-	BISB	(R3), R0
-	SWAB	R0
 	BISB	(R3)+, R0
-	MOV	R0, (R2)+	; Write into the screen
+	ASL	R0
+	MOV	PXCONV(R0), (R2)+	; Convert pixels / Write into the screen
 	SOB	R1, 20$
 	;ADD	#<80.-32.>, R2	; Next line
 	POP	R0
@@ -2114,7 +2160,7 @@ L9BE2:	MOVB	L8F16, R0	; 9BE2	LD A,($8F16)	get the counter
 ;TODO BK
 L9BD9:	MOV	#177777, R5
 	XOR	R5, R0			; inverse R0
-	MOV	#136524, R2		; Address on the screen
+	MOV	#136524, R2		; Address on the screen ;TODO BK
 	MOV	#<L6020+420>, R3
 	;MOV	#176642, R4
 	MOV	#8., R1
@@ -2133,7 +2179,7 @@ L9BD9:	MOV	#177777, R5
 ;	BISB	(R3), R5
 	BIC	R0, R5
 	;MOV	R5, (R4)		; write to screen
-	ADD	#<80.-1>, R2
+	ADD	#<64.-1>, R2
 	ADD	#<32.-1>, R3
 	SOB	R1, 1$
 	JMP	L9AEF		; 9BDF	JP $9AEF
@@ -2143,6 +2189,7 @@ L9BD9:	MOV	#177777, R5
 ;   2nd word -- address on the shadow screen
 ;   3rd word -- address on the real screen
 ;   4th word -- address in the draw markers area
+;TODO BK
 L9BFC:	.WORD	012, <LFD00-1027>, 132575, <LFD00+553.>	; 0A FAE9 5729 FF29  line 18
 	.WORD	014, <LFD00-1425>, 131377, <LFD00+523.>	; 0C F9EB 570B FF0B
 	.WORD	016, <LFD00-2023>, 130201, <LFD00+493.>	; 0E F8ED 4FED FEED
@@ -2772,7 +2819,7 @@ LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
 	MOVB	R2, L8F18	; A112	LD ($8F18),A
 	MOV	#<L6020+463>, R3	; Addr in the indicator sprite
 	ADD	R2, R3
-	ADD	#136647, R2		; Address on the screen
+	ADD	#136647, R2		; Address on the screen ;TODO BK
 	MOV	#7., R1
 2$:	;MOV	R2, @#176640
 	MOVB	(R3), R0
@@ -2934,7 +2981,7 @@ LA1CE:	MOVB	#22., (R2)	; A1CE	LD (HL),$16	set sprite = fireball
 ; Hide one Power column on the indicator
 ;TODO BK
 	MOVB	L8F18, R0	; A1E7	LD A,($8F18)
-	ADD	#136647, R0		; Address on the screen
+	ADD	#136647, R0		; Address on the screen ;TODO BK
 	MOV	#7., R1
 2$:	;MOV	R0, @#176640
 	;CLR	@#176642
@@ -3248,7 +3295,7 @@ LA3D3:
 ; Показываем панель индикаторов
 	MOV	#MMODE1, @#177716	; Включаем режим памяти 2
 	MOV	#L6020, R3	; A3E0	LD HL,$6020
-	MOV	#<SCREEN+<164.*64.>>, R2	; A3E3	LD DE,$5060
+	MOV	#SCRIND, R2	; A3E3	LD DE,$5060
 	MOV	#34., R0	; A3E6	LD A,$22
 				; A3E8	EX AF,AF'
 LA3E9:	MOV	#32., R1	; A3E9	LD BC,$0020
@@ -3297,7 +3344,7 @@ LA41E:	INCB	R0		; A41E	INC A
 LA428:	MOVB	R0, (R3)	; A428	LD (HL),A
 	SOB	R1, LA414	; A429	DJNZ $A414
 ; Routine entry point: Show score
-LA42B:	MOV	#<SCREEN+<160.*64.>+58.>, R2	; A42B	LD DE,$529D	address on the screen
+LA42B:	MOV	#<SCRIND+<10.*64.>+58.>, R2	; A42B	LD DE,$529D	address on the screen
 	MOV	#<LA480+6>, R1	; A42E	LD BC,$A486	Score
 LA431:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
 	MOVB	(R1), R0	; A431	LD A,(BC)
@@ -3317,11 +3364,11 @@ LA431:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
 	ADD	R0, R3		; A440	ADD HL,BC
 	MOV	R2, R5		; A441	LD C,D
 	MOV	#5, R1		; A442	LD B,$05	5 lines
-LA444:	MOVB	(R3), R0	; A444	LD A,(HL)
-	BIC	#177400, R0	;TODO BK
-	SWAB	R0
+LA444:	CLR	R0		; A444	LD A,(HL)
 	BISB	(R3)+, R0
-	MOV	R0, (R2)	; A445	LD (DE),A
+	ASL	R0
+	MOV	PXCONV(R0), (R2)	; Конвертируем пикселы по таблице и записываем в экран
+				; A445	LD (DE),A
 	ADD	#64., R2	; A446	INC D		next line
 				; A447	INC HL
 	SOB	R1, LA444	; A448	DJNZ $A444
@@ -3358,7 +3405,7 @@ LA46C:	POP	R1		; A46C	POP BC
 		; A473	LD BC,$0007
 		; A476	LDIR
 LA478:
-	MOV	#<SCREEN+<172.*64.>+58.>, R2	; A478	LD DE,$51DD	address on the screen
+	MOV	#<SCRIND+<25.*64.>+58.>, R2	; A478	LD DE,$51DD	address on the screen
 	MOV	#<LA480+14.>, R1	; A47B	LD BC,$A48E	score
 	BR	LA431		; A47E	JR $A431
 
@@ -3375,30 +3422,30 @@ LA490:	.BYTE	177,177,177,177,177	; 000
 	.BYTE	101,135,101,135,101	; 011 8
 	.BYTE	101,135,101,137,101	; 012 9
 	.EVEN
-LA4C7:	.WORD	<SCREEN+<156.*64.>+21.>
+LA4C7:	.WORD	<SCREEN+<148.*64.>+20.>
 	.BYTE	130,312,124,125,135,137,115,135,137,124,125,312,376	; DEMO MODE
 	.EVEN
-LA4D6:	.WORD	113717
+LA4D6:	.WORD	<SCREEN+<48.*64.>+22.>
 	.BYTE	130,112,144,130,125,142,125,115,131,143,112,377						; THERE IS
-	.WORD	115115
+	.WORD	<SCREEN+<56.*64.>+18.>
 	.BYTE	130,112,137,136,134,151,115,137,136,125,115,147,121,151,112,377				; ONLY ONE WAY
-	.WORD	116315
+	.WORD	<SCREEN+<64.*64.>+18.>
 	.BYTE	130,112,144,137,115,125,136,123,137,145,136,144,125,142,112,377				; TO ENCOUNTER
-	.WORD	117513
+	.WORD	<SCREEN+<72.*64.>+14.>
 	.BYTE	131,112,147,130,121,144,115,134,131,125,143,115,122,125,151,137,136,124,112,377  	; WHAT LIES BEYOND
-	.WORD	120716
+	.WORD	<SCREEN+<80.*64.>+20.>
 	.BYTE	131,112,152,137,136,125,115,152,125,142,137,120,112,377					; ZONE ZERO!
-	.WORD	123312
+	.WORD	<SCREEN+<88.*64.>+12.>
 	.BYTE	131,312,143,137,115,127,125,144,115,137,136,115,147,131,144,130,115,131,144,120,312,376 ; SO GET ON WITH IT!
 	.EVEN
 
-L8FB0:	.WORD	115114
-	.BYTE	130,140,142,125,140,121,142,125,115,151,137,145,142,143	; PREPARE YOUTSELF
+L8FB0:	.WORD	<SCREEN+<56.*64.>+16.>
+	.BYTE	130,140,142,125,140,121,142,125,115,151,137,145,142,143	; PREPARE YOURSELF
 	.BYTE	125,134,126,377
-	.WORD	116314
+	.WORD	<SCREEN+<64.*64.>+16.>
 	.BYTE	131,112,115,126,137,142,115,144,130,125			; FOR THE NEXT
 	.BYTE	115,136,125,150,144,115,112,377
-	.WORD	117512
+	.WORD	<SCREEN+<72.*64.>+12.>
 	.BYTE	131,212,330,331,327,330,347,321,351,315,325,336,323,337	; HIGHWAY ENCOUNTER
 	.BYTE	345,336,344,325,342,320,212,376
 	.EVEN
@@ -3837,20 +3884,20 @@ PORTBY:
 	.EVEN
 
 ; Text for Title Screen
-LB21E:	.WORD	105516
+LB21E:	.WORD	<SCREEN+<0.*64.>+20.>
 	.BYTE	130,212,121,145,144,130,137,142,115,123,137,143,144,121,115,140	; AUTHOR
 	.BYTE	121,136,121,151,131,212,377,000
-	.WORD	123333
+	.WORD	<SCREEN+<88.*64.>+46.>
 	.BYTE	131,300,212,025,050,031,044,377					; 0 EXIT
 ;	.WORD	127127
 ;	.BYTE	131,301,212,033,025,051,022,037,021,042,024,377			; 1 KEYBOARD
-	.WORD	130323
+	.WORD	<SCREEN+<120.*64.>+30.>
 	.BYTE	132,305,212,031,036,026,037,042,035,021,044,031,037,036,377,000	; 5 INFORMATION
-	.WORD	132717
+	.WORD	<SCREEN+<136.*64.>+22.>
 	.BYTE	132,306,212,024,025,035,037,036,043,044,042,021,044,031,037,036,377,000	; 6 DEMONSTRATION
-	.WORD	135313
+	.WORD	<SCREEN+<152.*64.>+14.>
 	.BYTE	132,307,212,043,044,021,042,044,015,027,021,035,025,377		; 7 START GAME
-	.WORD	141104
+	.WORD	<SCREEN+<174.*64.>>
 	.BYTE	132,212,123,137,140,151,142,131,127,130,144,115,101,111,110,105	; COPYRIGHT 1985 VORTEX SOFTWARE
 	.BYTE	115,146,137,142,144,125,150,115,143,137,126,144,147,121,142,125,212,376
 	.EVEN
@@ -4193,10 +4240,10 @@ LB57C:	POP	R2		; B57C	POP DE
 	ADD	#64., R3	; B58D	INC H		next line
 	MOVB	#5, R1		; B58E	LD B,$05
 LB590:	MOVB	(R2)+, R0	; B590	LD A,(DE)
-	ASH	#4, R0		; B591	SRL A
-				; B593	SRL A
-				; B595	SRL A
-				; B597	SRL A
+	ADD	R0, R0		; B591	SRL A
+	ADD	R0, R0		; B593	SRL A
+	ADD	R0, R0		; B595	SRL A
+	ADD	R0, R0		; B597	SRL A
 	;MOV	R3, @#176640   		; Устанавливаем косвенный адрес
 	;BIS	R0, @#176642	; B599	OR (HL)
 				; B59A	LD (HL),A
@@ -4352,26 +4399,27 @@ LB8C9:	BIC	#177700, R0	; B8C9	AND $3F
 	ASL	R3		; B8D1	ADD HL,HL
 				; B8D2	POP BC
 	ADD	R0, R3		; B8D3	ADD HL,BC	HL <- HL * 5
-	ADD	#L5B00, R3	; B8D4	LD BC,$5B00
+	ADD	#L5B00, R3	; B8D4	LD BC,$5B00	font address
 				; B8D7	ADD HL,BC
 	PUSH	R2		; B8D8	PUSH DE
 				; B8D9	XOR A
 	CLR	(R2)		; B8DA	LD (DE),A	write to the screen
 				; B8DB	LD A,$7F
 	ADD	#64., R2	; B8DD	INC D		next line
-	MOV	#077577, (R2)	; B8DE	LD (DE),A	write to the screen
+	MOV	#025252, (R2)	; B8DE	LD (DE),A	write to the screen
 	ADD	#64., R2	; B8DF	INC D		next line
 	MOV	#5, R1		; B8E0	LD B,$05	counter = 5
 LB8E2:	CLR	R0
 	BISB	(R3)+, R0	; B8E2	LD A,(HL)
 	ASL	R0
 	MOV	PXCONV(R0), R0		; Конвертируем пикселы по таблице
+	ASL	R0
 	MOV	R0, (R2)	; B8E3	LD (DE),A	write to the screen
 	ADD	#64., R2	; B8E4	INC D		next line
 				; B8E5	INC HL
 	SOB	R1, LB8E2	; B8E6	DJNZ $B8E2	repeat
 				; B8E8	LD A,$7F
-	MOV	#077577, (R2)	; B8EA	LD (DE),A	write to the screen
+	MOV	#025252, (R2)	; B8EA	LD (DE),A	write to the screen
 	POP	R2		; B8EB	POP DE
 	INC	R2		; B8EC	INC DE		next position on the screen
 	INC	R2
