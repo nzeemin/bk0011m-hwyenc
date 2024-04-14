@@ -661,13 +661,15 @@ L918C:	MOV	L8F1A, R3	; 918C	LD HL,($8F1A)	get Mission Time low counter
 	DECB	R0		; 91A1	DEC A
 	MOVB	R0, L8F19	; 91A2	LD ($8F19),A
 	MOV	R0, R2		; 91A5	XOR A
-	ASH	#-3, R2		; Divide by 8.
+	ASR	R2
+	ASR	R2
+	ASR	R2		; Divide by 8.
 	ADD	#<SCREEN+<160.*64.>+28.>, R2	; Screen address Mission Time ;TODO BK
 	BIC	#177770, R0
 	MOV	R0, R4
 	SUB	#7, R4
 	MOV	#377, R0
-	ASH	R4, R0		; shift right by 0..7 bits
+	ASH	R4, R0		; shift right by 0..7 bits ;TODO BK
 	BIC	#177421, R0
 	SWAB	R0
 	MOV	#7, R1		; 91A6	LD B,$07	7 lines
@@ -738,7 +740,7 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	SWAB	R0
 	BISB	(R3), R0
 	;MOV	R0, @#176642
-	ADD	#<80.-1>, R2
+	ADD	#<64.-1>, R2
 	ADD	#<32.-1>, R3
 	SOB	R1, 1$
 	POP	R3		; 921B	POP HL		HL points to (+$08)
@@ -1419,7 +1421,6 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 	ASL	R0
 	MOV	PXCONV(R0), (R2)+	; Convert pixels / Write into the screen
 	SOB	R1, 20$
-	;ADD	#<80.-32.>, R2	; Next line
 	POP	R0
 	SOB	R0, 10$
 	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
@@ -1984,11 +1985,10 @@ L9AB0:	MOVB	(R1), R0	; 9AB0	LD A,(BC)	<
 	MOV	R1, R5		; 9AB7	LD IXl,B	|  save B
 	MOV	#8., R1		; 9AB9	LD B,$08	|  Цикл по строкам знакоместа, 8. строк
 L9ABB:	CLR	R0		; 9ABB	LD A,(HL)	|  <
-	BISB	(R3), R0			;	|  |
+	BISB	(R3), R0			;	|  |  берём байт из теневого экрана
 	ASL	R0
-	MOV	PXCONV(R5), (R2)
+	MOV	PXCONV(R0), (R2)		;	|  |  конвертируем и выводим на экран
 				; 9ABC	LD (DE),A	|  |
-						;	|  |  выводим на экран
 	SUB	#64., R2	; 9ABD	DEC D		|  |  к предыдущей строке экрана
 				; 9ABE	LD A,$E0	|  |
 	SUB	#32., R3	; 9AC0	ADD A,L		|  |  к предыдущей строке теневого экрана
@@ -2183,24 +2183,24 @@ L9BD9:	MOV	#177777, R5
 ;   3rd word -- address on the real screen
 ;   4th word -- address in the draw markers area
 ;TODO BK
-L9BFC:	.WORD	012, <LFD00-1027>, <SCREEN+<18.*1000>+20.>, <LFD00+553.>	; 0A FAE9 5729 FF29  line 18
-	.WORD	014, <LFD00-1425>, <SCREEN+<17.*1000>+24.>, <LFD00+523.>	; 0C F9EB 570B FF0B
-	.WORD	016, <LFD00-2023>, <SCREEN+<16.*1000>+28.>, <LFD00+493.>	; 0E F8ED 4FED FEED
-	.WORD	020, <LFD00-2421>, <SCREEN+<15.*1000>+30.>, <LFD00+463.>	; 10 F7EF 4FCF FECF
-	.WORD	022, <LFD00-3017>, <SCREEN+<14.*1000>+34.>, <LFD00+433.>	; 12 F6F1 4FB1 FEB1
-	.WORD	024, <LFD00-3415>, <SCREEN+<13.*1000>+38.>, <LFD00+403.>	; 14 F5F3 4F93 FE93
-	.WORD	026, <LFD00-4013>, <SCREEN+<12.*1000>+42.>, <LFD00+373.>	; 16 F4F5 4F75 FE75
-	.WORD	030, <LFD00-4411>, <SCREEN+<11.*1000>+46.>, <LFD00+343.>	; 18 F3F7 4F57 FE57
-	.WORD	032, <LFD00-5007>, <SCREEN+<10.*1000>+50.>, <LFD00+313.>	; 1A F2F9 4F39 FE39
-	.WORD	033, <LFD00-5405>, <SCREEN+<9.*1000>+54.>, <LFD00+283.>	; 1B F1FB 4F1B FE1B
-	.WORD	033, <LFD00-6003>, <SCREEN+<8.*1000>+58.>, <LFD00+253.>	; 1B F0FD 47FD FDFD
-	.WORD	033, <LFD00-6401>, <SCREEN+<7.*1000>+62.>, <LFD00+223.>	; 1B EFFF 47DF FDDF
-	.WORD	031, <LFD00-7001>, <SCREEN+<6.*1000>+62.>, <LFD00+191.>	; 19 EEFF 47BF FDBF
-	.WORD	027, <LE900+2377>, <SCREEN+<5.*1000>+62.>, <LFD00+159.>	; 17 EDFF 479F FD9F
-	.WORD	025, <LE900+1777>, <SCREEN+<4.*1000>+62.>, <LFD00+127.>	; 15 ECFF 477F FD7F
-	.WORD	023, <LE900+1377>, <SCREEN+<3.*1000>+62.>, <LFD00+95.> 	; 13 EBFF 475F FD5F  line 3
-	.WORD	021, <LE900+777>,  <SCREEN+<2.*1000>+62.>, <LFD00+63.> 	; 11 EAFF 473F FD3F  line 2
-	.WORD	017, <LE900+377>,  <SCREEN+<1.*1000>+62.>, <LFD00+31.>	; 0F E9FF 471F FD1F  line 1
+L9BFC:	.WORD	012, <LFD00-1027>, <SCREEN+<143.*100>+20.>, <LFD00+553.>	; 0A FAE9 5729 FF29  line 18
+	.WORD	014, <LFD00-1425>, <SCREEN+<135.*100>+24.>, <LFD00+523.>	; 0C F9EB 570B FF0B
+	.WORD	016, <LFD00-2023>, <SCREEN+<127.*100>+28.>, <LFD00+493.>	; 0E F8ED 4FED FEED
+	.WORD	020, <LFD00-2421>, <SCREEN+<119.*100>+30.>, <LFD00+463.>	; 10 F7EF 4FCF FECF
+	.WORD	022, <LFD00-3017>, <SCREEN+<111.*100>+34.>, <LFD00+433.>	; 12 F6F1 4FB1 FEB1
+	.WORD	024, <LFD00-3415>, <SCREEN+<103.*100>+38.>, <LFD00+403.>	; 14 F5F3 4F93 FE93
+	.WORD	026, <LFD00-4013>, <SCREEN+< 95.*100>+42.>, <LFD00+373.>	; 16 F4F5 4F75 FE75
+	.WORD	030, <LFD00-4411>, <SCREEN+< 87.*100>+46.>, <LFD00+343.>	; 18 F3F7 4F57 FE57
+	.WORD	032, <LFD00-5007>, <SCREEN+< 79.*100>+50.>, <LFD00+313.>	; 1A F2F9 4F39 FE39
+	.WORD	033, <LFD00-5405>, <SCREEN+< 71.*100>+54.>, <LFD00+283.>	; 1B F1FB 4F1B FE1B
+	.WORD	033, <LFD00-6003>, <SCREEN+< 63.*100>+58.>, <LFD00+253.>	; 1B F0FD 47FD FDFD
+	.WORD	033, <LFD00-6401>, <SCREEN+< 55.*100>+62.>, <LFD00+223.>	; 1B EFFF 47DF FDDF
+	.WORD	031, <LFD00-7001>, <SCREEN+< 47.*100>+62.>, <LFD00+191.>	; 19 EEFF 47BF FDBF
+	.WORD	027, <LE900+2377>, <SCREEN+< 39.*100>+62.>, <LFD00+159.>	; 17 EDFF 479F FD9F
+	.WORD	025, <LE900+1777>, <SCREEN+< 31.*100>+62.>, <LFD00+127.>	; 15 ECFF 477F FD7F
+	.WORD	023, <LE900+1377>, <SCREEN+< 23.*100>+62.>, <LFD00+ 95.> 	; 13 EBFF 475F FD5F  line 3
+	.WORD	021, <LE900+777>,  <SCREEN+< 15.*100>+62.>, <LFD00+ 63.> 	; 11 EAFF 473F FD3F  line 2
+	.WORD	017, <LE900+377>,  <SCREEN+<  7.*100>+62.>, <LFD00+ 31.>	; 0F E9FF 471F FD1F  line 1
 	.WORD	000  ; end-of-table marker
 
 ; Routine: Process object movement
@@ -2280,9 +2280,9 @@ L9D0B:	BISB	#100, (R3)	; 9D0B	SET 6,(HL)
 ;TODO BK
 	MOV	R4, R0		; 9D0D	LD HL,$5A86	attributes
 	SUB	#L8A00, R0	; 9D10	LD A,IXl
-	ASH	#-3, R0		; 9D12	SRL A
-				; 9D14	SRL A
-				; 9D16	SRL A
+	ASR	R0		; 9D12	SRL A
+	ASR	R0		; 9D14	SRL A
+	ASR	R0		; 9D16	SRL A
 	ADD	#136632, R0	; 9D18	ADD A,L
 				; 9D19	LD L,A
 	MOV	#24., R1 	; 9D1A	LD B,$03
@@ -2293,7 +2293,7 @@ L9D20:	;MOV	R0, @#176640	; 9D20	LD (HL),A
 	INC	R0		; 9D21	INC L
 	;MOV	R0, @#176640
 	;CLR	@#176642	; 9D22	LD (HL),A
-	ADD	#<80.-1>, R0	; 9D23	ADD HL,DE
+	ADD	#<64.-1>, R0	; 9D23	ADD HL,DE
 	SOB	R1, L9D20	; 9D24	DJNZ $9D20
 	JMP	L9E1A		; 9D26	JP $9E1A	next record by IX
 ; Process movement; A = (IX+$08), A != 0
@@ -3303,7 +3303,7 @@ LA3E9:	MOV	#32., R1	; A3E9	LD BC,$0020
 	DEC	R0		; A3F1	DEC A
 	BEQ	LA403		; A3F2	JR Z,$A403
 				; A3F4	EX AF,AF'
-	;ADD	#<80.-32.>, R2	; A3F5	INC D
+				; A3F5	INC D
 				; A3F6	LD A,D
 				; A3F7	CP $58
 	BR	LA3E9		; A3F9	JR C,$A3E9
@@ -4164,7 +4164,6 @@ LB4D0:	MOVB	#6, LB4CF		; B4D0	LD A,$06
 
 ; Print Small Font Signs on the Info Screen
 ; NOTE: I removed the second pass used to fill attributes
-;TODO BK
 LB52D:	MOV	#LB62C, R3	; B52D	LD HL,$B62C	Info Screen Small Font Signs
 				; B530	PUSH HL
 LB531:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
