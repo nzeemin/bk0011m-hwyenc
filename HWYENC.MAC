@@ -50,10 +50,10 @@ START::
 ;	CALL	LB890
 ;TODO: Ожидание нажатой клавиши
 
-	CALL	LA3D3			; Prepare screen and indicators
-	CALL	L9423			; Preparing objects tables
-	;CALL	L92CE			; Prepare objects for the current Zone
-	CALL	L95EF			; Show the screen
+;	CALL	LA3D3			; Prepare screen and indicators
+;	CALL	L9423			; Preparing objects tables
+;	CALL	L92CE			; Prepare objects for the current Zone
+;	CALL	L95EF			; Show the screen
 
 ;	CALL	CLRSCR
 ;	CALL	LB2DA			; Prepare shadow screen
@@ -63,16 +63,14 @@ START::
 
 ;	CALL	LA291			; Prepare tables and show the starting animation
 
-;	MOV	#<L94F9+12.>, R3	; 9373	LD HL,$94F9	адрес списка с индексами спрайтов для больших цифр
-;	MOV	#L95E3, R4	; 937F	LD IX,$95E3	адрес массива адресов на экране для цифр ZONE
-;	CALL	L9394		; 9383	CALL $9394	show first ZONE digit
+;	MOV	#LB7B5, R3		; string
+;	CALL	LB890
 
-	MOV	#L8FB0, R3		; string
-	CALL	LB890
+;	CALL	LB4D0		; INFO screen
 
-DEAD:	BR DEAD
+;DEAD:	BR DEAD
 
-;	JMP	LB0DE		; Start point
+	JMP	LB0DE		; Start point
 
 FINISH:
 	MOV	OSTACK, SP		; Восстанавливаем стек
@@ -1963,7 +1961,7 @@ L9A74:	MOV	(R2)+, R0	; 9A74	LD A,(DE)
 	RETURN			; 9A9A	RET
 
 ; Routine -- Draw the shadow screen on the real screen, using draw markers LFD00
-L9A9B:
+L9A9B:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
 	MOV	#L9BFC, R3	; 9A9B	LD HL,$9BFC	Address of table with shadow screen line addresses
 	MOV	(R3), R0	; 9A9E	LD A,(HL)	number of blocks in the line
 L9A9F:	INC	R3		; 9A9F	INC HL		NOTE: byte replaced with word
@@ -1992,24 +1990,25 @@ L9AB0:	MOVB	(R1), R0	; 9AB0	LD A,(BC)	<
 	MOVB	R0, (R1)	; 9AB6	LD (BC),A	|  update marker value
 	MOV	R1, R5		; 9AB7	LD IXl,B	|  save B
 	MOV	#8., R1		; 9AB9	LD B,$08	|  Цикл по строкам знакоместа, 8. строк
-L9ABB:	MOVB	(R3), R0	; 9ABB	LD A,(HL)	|  <
-	BIC	#177400, R0			;	|  |
-	SWAB	R0
-	BISB	(R3), R0
+L9ABB:	CLR	R0		; 9ABB	LD A,(HL)	|  <
+	BISB	(R3), R0			;	|  |
+	ASL	R0
+	MOV	PXCONV(R5), (R2)
 				; 9ABC	LD (DE),A	|  |
-	MOV	R0, (R2)			;	|  |  выводим на экран
-	SUB	#32., R2	; 9ABD	DEC D		|  |  к предыдущей строке экрана
+						;	|  |  выводим на экран
+	SUB	#64., R2	; 9ABD	DEC D		|  |  к предыдущей строке экрана
 				; 9ABE	LD A,$E0	|  |
 	SUB	#32., R3	; 9AC0	ADD A,L		|  |  к предыдущей строке теневого экрана
 				; 9AC1	LD L,A		|  |
 	SOB	R1, L9ABB	; 9AC2	DJNZ $9ABB	|  продолжение цикла по строкам
 				; 9AC4	LD A,D	        |
-	ADD	#256., R2	; 9AC5	ADD A,$08	|  на 8. экранных строк ниже
+	ADD	#1000, R2	; 9AC5	ADD A,$08	|  на 8. экранных строк ниже
 	ADD	#256., R3	; 9AC7	LD D,A	        |
 	MOV	R5, R1		; 9AC8	LD B,IXl	|  restore B
 L9ACA:						;	|
 	DEC	R3		; 9ACA	DEC L		|
 	DEC	R2		; 9ACB	DEC E		|  к предыдущей позиции в строке
+	DEC	R2
 	DEC	R1		; 9ACC	DEC C		|  к предыдущему элементу массива
 	SOB	R4, L9AB0	; 9ACD	DEC IXh		|
 				; 9ACF	JP NZ,$9AB0	продолжение цикла по строке
@@ -2017,6 +2016,7 @@ L9ACA:						;	|
 	MOVB	(R3), R0	; 9AD3	LD A,(HL)
 				; 9AD4	AND A		end of table?
 	BNE	L9A9F		; 9AD5	JP NZ,$9A9F	no => repeat
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
 ;
 	MOVB	L8F0B, R0	; 9AD8	LD A,($8F0B)	адрес в таблице 8D52
 	CMP	R0, #L8D6A	; 9ADB	CP $6A		< 8D6A ? объектов меньше 8
@@ -2190,24 +2190,24 @@ L9BD9:	MOV	#177777, R5
 ;   3rd word -- address on the real screen
 ;   4th word -- address in the draw markers area
 ;TODO BK
-L9BFC:	.WORD	012, <LFD00-1027>, 132575, <LFD00+553.>	; 0A FAE9 5729 FF29  line 18
-	.WORD	014, <LFD00-1425>, 131377, <LFD00+523.>	; 0C F9EB 570B FF0B
-	.WORD	016, <LFD00-2023>, 130201, <LFD00+493.>	; 0E F8ED 4FED FEED
-	.WORD	020, <LFD00-2421>, 127003, <LFD00+463.>	; 10 F7EF 4FCF FECF
-	.WORD	022, <LFD00-3017>, 125605, <LFD00+433.>	; 12 F6F1 4FB1 FEB1
-	.WORD	024, <LFD00-3415>, 124407, <LFD00+403.> ; 14 F5F3 4F93 FE93
-	.WORD	026, <LFD00-4013>, 123211, <LFD00+373.>	; 16 F4F5 4F75 FE75
-	.WORD	030, <LFD00-4411>, 122013, <LFD00+343.>	; 18 F3F7 4F57 FE57
-	.WORD	032, <LFD00-5007>, 120615, <LFD00+313.>	; 1A F2F9 4F39 FE39
-	.WORD	033, <LFD00-5405>, 117417, <LFD00+283.>	; 1B F1FB 4F1B FE1B
-	.WORD	033, <LFD00-6003>, 116221, <LFD00+253.> ; 1B F0FD 47FD FDFD
-	.WORD	033, <LFD00-6401>, 115023, <LFD00+223.>	; 1B EFFF 47DF FDDF
-	.WORD	031, <LFD00-7001>, 113623, <LFD00+191.>	; 19 EEFF 47BF FDBF
-	.WORD	027, <LE900+2377>, 112423, <LFD00+159.> ; 17 EDFF 479F FD9F
-	.WORD	025, <LE900+1777>, 111223, <LFD00+127.> ; 15 ECFF 477F FD7F
-	.WORD	023, <LE900+1377>, 110023, <LFD00+95.> 	; 13 EBFF 475F FD5F  line 3
-	.WORD	021, <LE900+777>,  106623, <LFD00+63.> 	; 11 EAFF 473F FD3F  line 2
-	.WORD	017, <LE900+377>,  105423, <LFD00+31.>	; 0F E9FF 471F FD1F  line 1
+L9BFC:	.WORD	012, <LFD00-1027>, <SCREEN+<18.*1000>+20.>, <LFD00+553.>	; 0A FAE9 5729 FF29  line 18
+	.WORD	014, <LFD00-1425>, <SCREEN+<17.*1000>+24.>, <LFD00+523.>	; 0C F9EB 570B FF0B
+	.WORD	016, <LFD00-2023>, <SCREEN+<16.*1000>+28.>, <LFD00+493.>	; 0E F8ED 4FED FEED
+	.WORD	020, <LFD00-2421>, <SCREEN+<15.*1000>+30.>, <LFD00+463.>	; 10 F7EF 4FCF FECF
+	.WORD	022, <LFD00-3017>, <SCREEN+<14.*1000>+34.>, <LFD00+433.>	; 12 F6F1 4FB1 FEB1
+	.WORD	024, <LFD00-3415>, <SCREEN+<13.*1000>+38.>, <LFD00+403.>	; 14 F5F3 4F93 FE93
+	.WORD	026, <LFD00-4013>, <SCREEN+<12.*1000>+42.>, <LFD00+373.>	; 16 F4F5 4F75 FE75
+	.WORD	030, <LFD00-4411>, <SCREEN+<11.*1000>+46.>, <LFD00+343.>	; 18 F3F7 4F57 FE57
+	.WORD	032, <LFD00-5007>, <SCREEN+<10.*1000>+50.>, <LFD00+313.>	; 1A F2F9 4F39 FE39
+	.WORD	033, <LFD00-5405>, <SCREEN+<9.*1000>+54.>, <LFD00+283.>	; 1B F1FB 4F1B FE1B
+	.WORD	033, <LFD00-6003>, <SCREEN+<8.*1000>+58.>, <LFD00+253.>	; 1B F0FD 47FD FDFD
+	.WORD	033, <LFD00-6401>, <SCREEN+<7.*1000>+62.>, <LFD00+223.>	; 1B EFFF 47DF FDDF
+	.WORD	031, <LFD00-7001>, <SCREEN+<6.*1000>+62.>, <LFD00+191.>	; 19 EEFF 47BF FDBF
+	.WORD	027, <LE900+2377>, <SCREEN+<5.*1000>+62.>, <LFD00+159.>	; 17 EDFF 479F FD9F
+	.WORD	025, <LE900+1777>, <SCREEN+<4.*1000>+62.>, <LFD00+127.>	; 15 ECFF 477F FD7F
+	.WORD	023, <LE900+1377>, <SCREEN+<3.*1000>+62.>, <LFD00+95.> 	; 13 EBFF 475F FD5F  line 3
+	.WORD	021, <LE900+777>,  <SCREEN+<2.*1000>+62.>, <LFD00+63.> 	; 11 EAFF 473F FD3F  line 2
+	.WORD	017, <LE900+377>,  <SCREEN+<1.*1000>+62.>, <LFD00+31.>	; 0F E9FF 471F FD1F  line 1
 	.WORD	000  ; end-of-table marker
 
 ; Routine: Process object movement
@@ -3293,7 +3293,7 @@ LA3D3:
 ;TODO: Установить основную палитру
 
 ; Показываем панель индикаторов
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
 	MOV	#L6020, R3	; A3E0	LD HL,$6020
 	MOV	#SCRIND, R2	; A3E3	LD DE,$5060
 	MOV	#34., R0	; A3E6	LD A,$22
@@ -3790,21 +3790,21 @@ LAA90:	.WORD	<LD900+31>,	12.	; $19,$D9,$0C
 	.WORD	<LD900+5021>, 	8.	; $11,$E3,$08
 
 ; Подпрограмма: Ожидание символа с клавиатуры: R0 = полученный символ
-WTKEY:	TSTB	@#177560
+WTKEY:	TSTB	@#177660
 	BPL	WTKEY
 	CLR	R0
-	MOVB	@#177562, R0	; символ в R0
+	MOVB	@#177662, R0	; символ в R0
 	CMPB	R0, #33
 	BNE	WTKEYR
-ESCKEY:	TSTB	@#177560
+ESCKEY:	TSTB	@#177660
 	BPL	ESCKEY
-	MOVB	@#177562, R0	; символ в R0
+	MOVB	@#177662, R0	; символ в R0
 	BIS	#15400,R0	; #33 в верхний байт
 WTKEYR:	RETURN
 ; Подпрограмма: Получение символа с клавиатуры: флаг Z=0 = есть символ, R0 = полученный символ
-GETKEY:	TSTB	@#177560	; есть символ?
+GETKEY:	TSTB	@#177660	; есть символ?
 	BPL	10$		; нет символа => выходим
-	MOVB	@#177562, R0	; символ в R0
+	MOVB	@#177662, R0	; символ в R0
 	CMPB	R0, #33		; Esc ?
 	BEQ	ESCKEY
 	RETURN
@@ -4334,37 +4334,37 @@ LB62C:	.WORD	112514
 	.EVEN
 
 ; Info Screen Text
-LB7B5:	.WORD	111314
+LB7B5:	.WORD	SCREEN+<32.*64.>+16.
 	.BYTE	130,212,121,145,144,137,116,146,137,142,144,137,136,143,212,377	; AUTO-VORTONS
-	.WORD	116320
+	.WORD	SCREEN+<64.*64.>+24.
 	.BYTE	131,212,134,121,143,125,142,144,142,137,136,212,377,000		; LASERTRON
-	.WORD	123305
+	.WORD	SCREEN+<96.*64.>+2.
 	.BYTE	131,212,135,121,131,136,115,146,137,142,144,137,136,212,377,000	; MAIN VORTON
-	.WORD	130307
+	.WORD	SCREEN+<128.*64.>+6.
 	.BYTE	132,212,151,137,145,142,115,135,131,143,143,131,137,136,212,377	; YOUR MISSION
-	.WORD	124531
+	.WORD	SCREEN+<104.*64.>+42.
 	.BYTE	131,212,123,137,136,144,142,137,134,143,212,377			; CONTROLS
-	.WORD	127131
+	.WORD	SCREEN+<120.*64.>+42.
 	.BYTE	131,101,377,000							; 1
-	.WORD	127136
+	.WORD	SCREEN+<128.*64.>+42.
 	.BYTE	131,111,377,000							; O
-	.WORD	130331
+	.WORD	SCREEN+<128.*64.>+42.
 	.BYTE	132,141,377,000							; Q
-	.WORD	130336
+	.WORD	SCREEN+<128.*64.>+42.
 	.BYTE	132,100,377,000							; P
-	.WORD	131536
+	.WORD	SCREEN+<128.*64.>+42.
 	.BYTE	132,112,377,000							; ' '
-	.WORD	132731
+	.WORD	SCREEN+<152.*64.>+42.
 	.BYTE	132,114,140,377							; ^P
-	.WORD	134131
+	.WORD	SCREEN+<160.*64.>+42.
 	.BYTE	132,114,123,377							; ^C
-	.WORD	104312
+	.WORD	SCREEN+<0.*64.>+12.
 	.BYTE	130,312,130,131,127,130,147,121,151,115,115,125,136,123,137,145 ; HIGHWAY
 	.BYTE	136,144,125,142,312,377						; ENCOUNTER
-	.WORD	105510
+	.WORD	SCREEN+<8.*64.>+8.
 	.BYTE	130,212,123,134,121,143,143,131,126,131,125,124,115,131,136,126 ; CLASSIFIED
 	.BYTE	137,142,135,121,144,131,137,136,212,377				; INFORMATION
-LB839:	.WORD	SCREEN+<148.*148.>+8.
+LB839:	.WORD	SCREEN+<186.*64.>+8.
 	.BYTE	132,212,140,142,125,143,143,115,121,136,151,115,133,125,151,115	; PRESS ANY KEY
 	.BYTE	147,130,125,136,115,142,125,121,124,151,212,376			; WHEN READY
 	.EVEN
