@@ -11,7 +11,7 @@ set "DATESTAMP=%YYYY%:%MM%:%DD%"
 for /f %%i in ('git rev-list HEAD --count') do (set REVISION=%%i)
 echo REV.%REVISION% %DATESTAMP%
 
-echo 	.ASCII /REV;%REVISION%@%DATESTAMP%/ > VERSIO.MAC
+echo 	.ASCII /REV;%REVISION%@@%DATESTAMP%/ > VERSIO.MAC
 
 @if exist TILES.OBJ del TILES.OBJ
 @if exist HWYENC.LST del HWYENC.LST
