@@ -9,15 +9,14 @@
 
 ;------------------------------------------------------------------------------
 
-SCRHEI = 192.
-
-SCREEN = 100000 + <26.*64.>	; Начало экрана 256 x 192
+SCREEN = 100000 + <26.*64.>	; Начало экрана 256. x 192.
 SCRIND = SCREEN + <160.*64.>	; Начало панели индикаторов
 
 ; Режимы для регистра управления памятью
 ;          .___1___...00.00
 MMODE1 = ^B0011100100000000	; 3:5 - стр.3 в 040000-100000, стр.5 (экран) в 100000-140000
 MMODE2 = ^B0011110000000000	; 3:4 - стр.3 в 040000-100000, стр.4 в 100000-140000
+; Основным является режим 2. При рисовании на экран на короткое время включается режим 1.
 
 PXCONV = 001000			; Адрес таблицы конвертации пикселей
 
@@ -64,9 +63,10 @@ START::
 	JMP	LB0DE		; Start point
 
 FINISH:
+	CALL	CLRSCR
+;TODO: Восстановить палитру	MOV	#???, @#177662
+	MOV	#001600, @#177716	; Вернуть стандартное значение регистра управления памятью
 	MOV	OSTACK, SP		; Восстанавливаем стек
-;TODO: Восстановить палитру
-;TODO: Вернуть стандартное значение регистра управления памятью
 	RETURN		;TODO: Заменить на прямой переход в ANDOS
 
 OSTACK:	.WORD	40000			; Начальное значение SP
@@ -118,7 +118,7 @@ L7A00:	; Table with sprite addresses
 ;   +$03,+$04 -- this plus current zone offset ($8F03) gives address on the screen
 ;   +$05 -- base sprite number, index in 7A00 table
 ;   +$06 -- movement pattern: 000 = Vorton, 006 = Fire, 012 = Block, 026 = Flat blocker, 032 = Barrel
-;   +$07 -- direction, copied from (IX+$0С) AND $07, values 0..7
+;   +$07 -- direction, copied from (IX+$0я) AND $07, values 0..7
 ;   +$08 -- movement flags ?? 0 = stop, 1 = move; bit 7 = 1: explosion
 ;   +$09 -- horz offset (bits 2-3 only)
 ;   +$0A -- offset from $8F00, where we have sprite number: 015,017,020,021,022,023
@@ -1630,7 +1630,7 @@ L98E2:	INC	R3		; 98E2	INC L		NOTE: первый байт таблицы заме
 	MOVB	5(R4), R5	; 98F2	ADD A,(IX+$05)	add base sprite number
 	BIC	#177400, R5
 	ADD	R5, R0
-	MOV	#L7A00, R3	; 98F5	LD L,A	
+	MOV	#L7A00, R3	; 98F5	LD L,A
 	ADD	R0, R3		; 98F6	LD H,$7A	sprite address table 7A00
 	MOV	(R3), R2	; 98F8	LD E,(HL)
 				; 98F9	INC HL
@@ -1719,7 +1719,7 @@ L99C7:	ADD	R1, R3		; 99C7	ADD HL,BC	|  to next line
 				; 99CB	EX AF,AF'	|
 				; 99CC	DEC A		|
 	SOB	R5, L99BC	; 99CD	JP NZ,$99BC	repeat loop by lines
-	RETURN 			; 99D0	RET	
+	RETURN 			; 99D0	RET
 ; Таблица из 4-х элементов для выбора процедуры отрисовки спрайта
 L9915:	.WORD	L99D1	; Draw sprite with shift by 4px
 	.WORD	L9A26	; Draw sprite with shift by 2px
@@ -2112,7 +2112,7 @@ L9B8C:	ADD	R2, R3		; 9B8C	ADD HL,DE
 				; 9BA4	AND A
 	SUB	R1, R3		; 9BA5	SBC HL,BC
 				; 9BA7	LD A,H
-	
+
 	CMP	R3, #177760	; 9BA8	CP $FF
 				; 9BAA	JP NZ,$9BB3
 				; 9BAD	LD A,L
@@ -2499,7 +2499,7 @@ L9E4C:	MOV	R4, R0		; 9E4C	LD A,IXl
 	BEQ	L9E45		; 9E56	JR Z,$9E45	yes => next record by HL
 ; IX and HL are not the same record
 	MOV	R3, R2		; 9E58	LD A,$04
-	ADD	#4, R3		; 9E5A	ADD A,L	
+	ADD	#4, R3		; 9E5A	ADD A,L
 				; 9E5B	EX DE,HL	DE points to (+$02)
 				; 9E5C	LD L,A
 				; 9E5D	LD H,D		HL points to (+$06)
@@ -2575,7 +2575,7 @@ L9EBF:				; 9EBF	LD A,$05
 	BITB	#20, (R3)	; 9ECC	BIT 4,(HL)	check movement pattern
 	BNE	L9ED2		; 9ECE	JR NZ,$9ED2
 	ASR	R0		; 9ED0	SRL A
-L9ED2:	INC	R3		; 9ED2	INC L	
+L9ED2:	INC	R3		; 9ED2	INC L
 	INC	R3		; 9ED3	INC L		HL points to (+$08)
 	BISB	#100, R0	; 9ED4	SET 6,A
 	MOVB	R0, (R3)	; 9ED6	LD (HL),A	set movement
@@ -3001,7 +3001,7 @@ LA1F8:
 	MOVB	R0, (R3)	; A203	LD (HL),A	save Main Vorton sprite phase
 	MOV	#LA28F, R3	; A204	LD HL,$A28F
 	CLR	R0		; A207	XOR A
-	CMPB	R0, (R3)	; A208	CP (HL)	
+	CMPB	R0, (R3)	; A208	CP (HL)
 	BEQ	LA20F		; A209	JR Z,$A20F
 	DECB	(R3)		; A20B	DEC (HL)
 	BR	LA233		; A20C	JP $A233
@@ -3413,7 +3413,7 @@ LA478:
 	BR	LA431		; A47E	JR $A431
 
 LA480:	.BYTE	377,000,000,000,000,000,000,001,377,000,000,000,000,000,000,001	; Score and High Score
-LA490:	.BYTE	177,177,177,177,177	; 000 
+LA490:	.BYTE	177,177,177,177,177	; 000
 	.BYTE	101,135,135,135,101	; 001 0
 	.BYTE	137,137,137,137,137	; 002 1
 	.BYTE	101,137,101,175,101	; 003 2
