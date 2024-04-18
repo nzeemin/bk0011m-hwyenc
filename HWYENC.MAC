@@ -14,8 +14,8 @@ SCRIND = SCREEN + <160.*64.>	; Начало панели индикаторов
 
 ; Режимы для регистра управления памятью
 ;          .___1___...00.00
-MMODE1 = ^B0011100100000000	; 3:5 - стр.3 в 040000-100000, стр.5 (экран) в 100000-140000
-MMODE2 = ^B0011110000000000	; 3:4 - стр.3 в 040000-100000, стр.4 в 100000-140000
+MMODE1 = ^B0011100000000000	; 3:1 - стр.3 в 040000-100000, стр.1 в 100000-140000 -- основной
+MMODE5 = ^B0011100100000000	; 3:5 - стр.3 в 040000-100000, стр.5 (экран) в 100000-140000 -- для рисования
 ; Основным является режим 2. При рисовании на экран на короткое время включается режим 1.
 
 PXCONV = 001000			; Адрес таблицы конвертации пикселей
@@ -28,7 +28,7 @@ START::
 	MTPS	#340			; disable all interruptions
 	MOV	SP, OSTACK		; Сохраняем начальное значение SP
 	MOV	#1000, SP
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 
 ; Создать таблицу PXCONV по адерсам 001000-002000, для конвертации пикселей
 	MOV	#002000, R2
@@ -67,7 +67,7 @@ FINISH:
 ;TODO: Восстановить палитру	MOV	#???, @#177662
 	MOV	#001600, @#177716	; Вернуть стандартное значение регистра управления памятью
 	MOV	OSTACK, SP		; Восстанавливаем стек
-	RETURN		;TODO: Заменить на прямой переход в ANDOS
+	JMP	@#100000		; Возврат в ANDOS
 
 OSTACK:	.WORD	40000			; Начальное значение SP
 
@@ -80,7 +80,7 @@ RETN:	RETURN
 
 ; Подпрограмма очистки экрана
 CLRSCR:
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#100000, R2
 	MOV	#2048., R3
 1$:	CLR	(R2)+
@@ -88,7 +88,7 @@ CLRSCR:
 	CLR	(R2)+
 	CLR	(R2)+		; loop unroll x8
 	SOB	R3, 1$
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN
 
 ;------------------------------------------------------------------------------
@@ -675,11 +675,11 @@ L918C:	MOV	L8F1A, R3	; 918C	LD HL,($8F1A)	get Mission Time low counter
 	SOB	R4, 1$
 	BIC	#^B1010101110101011, R0
 	MOV	#7, R1		; 91A6	LD B,$07	7 lines
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 L91A8:	MOV	R0, (R2)	; 91A8	LD (HL),A
 	ADD	#64., R2	; 91A9	INC H		next line
 	SOB	R1, L91A8	; 91AA	DJNZ $91A8
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 				; 91AC	LD A,L
 	MOVB	L8F19, R0	; 91AD	CP $D4
 	BNE	L91C0		; 91AF	JP NC,$91C0
@@ -728,7 +728,7 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	ASL	R1
 	ADD	R1, R2
 	MOV	#4., R1			; 4 lines
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 1$:	CLR	R0
 	BISB	(R3)+, R0		; get byte
 	ASL	R0
@@ -742,7 +742,7 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	ADD	#<64.-2>, R2
 	ADD	#<32.-1>, R3
 	SOB	R1, 1$
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	POP	R3		; 921B	POP HL		HL points to (+$08)
 	DEC	R3		; 921C	DEC L
 	DEC	R3		; 921D	DEC L		HL points to (+$06)
@@ -894,7 +894,7 @@ L936F:	MOV	R1, R0		; 936F	LD A,B		working with upper digit
 ; Procedure: Draw digit with size of 16x24 pixels into the ZONE indicator
 ; R3 = адрес массива из 6-ти номеров спрайтов 8x8
 ; R4 = адрес массива из 6-ти адресов на экране
-L9394:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+L9394:	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#6, R5		; 9394	LD C,$06	нужно вывести 6. спрайтов
 L9396:	MOVB	(R3)+, R2	; 9396	LD E,(HL)	взяли номер спрайта
 	PUSH	R3		; 9397	PUSH HL
@@ -921,7 +921,7 @@ L93A9:	CLR	R0
 				; 93B1	INC IX
 				; 93B3	DEC C
 	SOB	R5, L9396	; 93B4	JR NZ,$9396	repeat
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN			; 93B6	RET
 
 ; We come here after we drawn ZONE digits
@@ -1412,7 +1412,7 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 ; NOTE: 9799..97A4 code fills attributes, removed
 ;
 ; Draw screen D905 on the real screen
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#<LD900+5>, R3	; 97A6	LD HL,$D905
 	MOV	#SCREEN, R2	; 97A9	LD DE,$4000	Screen address
 	MOV	#144., R0	; Number of lines to copy
@@ -1427,7 +1427,7 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 	SOB	R1, 20$
 	POP	R0
 	SOB	R0, 10$
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 ; Копирование подготовленного теневого экрана на второй теневой экран
 	MOV	#<LD900+1005>, R3	; 97DF	LD HL,$DB05
 	MOV	#LEB00, R2	; 97E2	LD DE,$EB00
@@ -1922,48 +1922,24 @@ L9A2A:	PUSH	R0		; 9A2A	EX AF,AF'
 	RETURN			; 9A6F	RET
 
 ; Routine: Draw sprite with no shift
-L9A70:	MOV	R1, R3		; 9A70	LD H,B
-				; 9A71	LD L,C
-	MOV	#24., R1	; 9A72	LD B,$18	счётчик цикла = 24.
-L9A74:	MOV	(R2)+, R0	; 9A74	LD A,(DE)
-	BICB	R0, (R3)+	; 9A75	AND (HL)
-				; 9A76	LD (HL),A
-				; 9A77	INC DE
-				; 9A78	INC HL
-	SWAB	R0		; 9A79	LD A,(DE)
-	BICB	R0, (R3)+	; 9A7A	AND (HL)
-				; 9A7B	LD (HL),A
-				; 9A7C	INC DE
-				; 9A7D	INC HL
-	MOVB	(R2)+, R0	; 9A7E	LD A,(DE)
-	BICB	R0, (R3)	; 9A7F	AND (HL)
-				; 9A80	LD (HL),A
-				; 9A81	INC DE
-	DEC	R3		; 9A82	DEC HL
-	DEC	R3		; 9A83	DEC HL
-	MOVB	(R2)+, R0	; 9A84	LD A,(DE)
-	BISB	R0, (R3)+	; 9A85	OR (HL)
-				; 9A86	LD (HL),A
-				; 9A87	INC DE
-				; 9A88	INC HL
-	MOV	(R2)+, R0	; 9A89	LD A,(DE)
-	BISB	R0, (R3)+	; 9A8A	OR (HL)
-				; 9A8B	LD (HL),A
-				; 9A8C	INC DE
-				; 9A8D	INC HL
-	SWAB	R0		; 9A8E	LD A,(DE)
-	BISB	R0, (R3)	; 9A8F	OR (HL)
-				; 9A90	LD (HL),A
-				; 9A91	INC DE
-				; 9A92	LD A,B
-				; 9A93	LD BC,$FFDE
-	SUB	#34., R3	; 9A96	ADD HL,BC
-				; 9A97	LD B,A
-	SOB	R1, L9A74	; 9A98	DJNZ $9A74	повтор цикла
+L9A70:
+	MOV	#8., R3		; 9A72	LD B,$18	счётчик цикла = 24.
+L9A74:	.REPT	3			; loop unroll x3
+	BICB	(R2)+, (R1)+
+	BICB	(R2)+, (R1)+
+	BICB	(R2)+, (R1)
+	DEC	R1
+	DEC	R1
+	BISB	(R2)+, (R1)+
+	BISB	(R2)+, (R1)+
+	BISB	(R2)+, (R1)
+	SUB	#34., R1
+	.ENDR
+	SOB	R3, L9A74	; 9A98	DJNZ $9A74	повтор цикла
 	RETURN			; 9A9A	RET
 
 ; Routine -- Draw the shadow screen on the real screen, using draw markers LFD00
-L9A9B:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+L9A9B:	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#L9BFC, R3	; 9A9B	LD HL,$9BFC	Address of table with shadow screen line addresses
 	MOV	(R3), R0	; 9A9E	LD A,(HL)	number of blocks in the line
 L9A9F:	INC	R3		; 9A9F	INC HL		NOTE: byte replaced with word
@@ -2027,7 +2003,7 @@ L9ACA:						;	|
 	MOVB	(R3), R0	; 9AD3	LD A,(HL)
 				; 9AD4	AND A		end of table?
 	BNE	L9A9F		; 9AD5	JP NZ,$9A9F	no => repeat
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 ;
 	MOVB	L8F0B, R0	; 9AD8	LD A,($8F0B)	адрес в таблице 8D52
 	CMP	R0, #L8D6A	; 9ADB	CP $6A		< 8D6A ? объектов меньше 8
@@ -2175,7 +2151,7 @@ L9BD9:	SXT	R0
 	MOV	#<SCRIND+<8.*64.>+32.>, R2	; Address on the screen
 	MOV	#<L6020+420>, R3
 	MOV	#8., R1
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 1$:	CLR	R5			; #1
 	BISB	(R3)+, R5		; get byte
 	ASL	R5
@@ -2193,7 +2169,7 @@ L9BD9:	SXT	R0
 	ADD	#<64.-2>, R2		; next line
 	ADD	#<32.-1>, R3
 	SOB	R1, 1$
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	JMP	L9AEF		; 9BDF	JP $9AEF
 
 ; Data block: 18 records used to draw the shadow screen
@@ -2305,13 +2281,13 @@ L9D0B:	BISB	#100, (R3)	; 9D0B	SET 6,(HL)
 	MOV	#24., R1 	; 9D1A	LD B,$03
 				; 9D1C	LD DE,$001F
 				; 9D1F	XOR A
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 L9D20:	CLR	(R0)+		; 9D20	LD (HL),A
 				; 9D21	INC L
 	CLR	(R0)		; 9D22	LD (HL),A
 	ADD	#<64.-2>, R0	; 9D23	ADD HL,DE
 	SOB	R1, L9D20	; 9D24	DJNZ $9D20
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	JMP	L9E1A		; 9D26	JP $9E1A	next record by IX
 ; Process movement; A = (IX+$08), A != 0
 L9D29:	DEC	R0		; 9D29	DEC A
@@ -2831,7 +2807,7 @@ LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
 	ASL	R2
 	ADD	#<SCRIND+<9.*64.>+38.>, R2	; Address on the screen
 	MOV	#7., R1
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 2$:	CLR	R0
 	BISB	(R3), R0		; get byte
 	ASL	R0
@@ -2840,7 +2816,7 @@ LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
 	ADD	#64., R2		; next line
 	ADD	#32., R3
 	SOB	R1, 2$
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	POP	R3
 	POP	R2
 LA119:	MOV	#12345, R0	; A119	EX AF,AF'	restore AF
@@ -2994,11 +2970,11 @@ LA1CE:	MOVB	#22., (R2)	; A1CE	LD (HL),$16	set sprite = fireball
 	ASL	R0
 	ADD	#<SCRIND+<9.*64.>+38.>, R0	; Address on the screen
 	MOV	#7., R1
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 2$:	CLR	(R0)
 	ADD	#64., R0		; next line
 	SOB	R1, 2$		; A1EF	DEC A
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	DECB	L8F18		; A1F0	LD ($8F18),A
 	MOV	#L8F15, R3	; A1F3	LD HL,$8F15
 	BISB	#2, (R3)	; A1F6	SET 1,(HL)
@@ -3281,7 +3257,7 @@ LA37A:	PUSH	R1		; A37A	PUSH BC	        <
 ; End of the DEMO MODE
 LA3A8:
 ; Paint the game screen with red
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#SCREEN, R2		; Screen address
 	MOV	#144., R0		; Number of lines to fill
 1$:	MOV	#32., R1		; Counter to loop thru the line
@@ -3289,7 +3265,7 @@ LA3A8:
 2$:	MOV	R3, (R2)+		; Write into the screen
 	SOB	R1, 2$
 	SOB	R0, 1$			; continue loop by lines
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 ; Show the sign
 	MOV	#LA4D6, R3	; A3B7	LD HL,$A4D6	"THERE IS ONLY ONE WAY TO ENCOUNTER..."
 	CALL	LB890		; A3BA	CALL $B890	Print Text
@@ -3305,7 +3281,7 @@ LA3D3:
 ;TODO: Установить основную палитру
 
 ; Показываем панель индикаторов
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#L6020, R3	; A3E0	LD HL,$6020
 	MOV	#SCRIND, R2	; A3E3	LD DE,$5060
 	MOV	#34., R0	; A3E6	LD A,$22
@@ -3332,7 +3308,7 @@ LA3E9:	MOV	#32., R1	; A3E9	LD BC,$0020
 				; A400	LD E,A
 				; A401	JR $A3E9
 LA403:
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 				; A403	LD DE,$5A60	Screen attribute area address
 				; A406	LD BC,$00A0
 				; A409	LDIR	        Fill attributes
@@ -3358,12 +3334,12 @@ LA428:	MOVB	R0, (R3)	; A428	LD (HL),A
 ; Routine entry point: Show score
 LA42B:	MOV	#<SCRIND+<10.*64.>+58.>, R2	; A42B	LD DE,$529D	address on the screen
 	MOV	#<LA480+6>, R1	; A42E	LD BC,$A486	Score
-LA431:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+LA431:	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 LA432:	MOVB	(R1), R0	; A431	LD A,(BC)
 	BIC	#177400, R0
 	CMPB	R0, #377	; A432	CP $FF
 	BNE	1$		; A434	RET Z
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN
 1$:	PUSH	R1		; A435	PUSH BC
 	MOV	R0, R1		; A436	LD C,A
@@ -4016,7 +3992,7 @@ LB33C:	MOV	#LB499, R3	; B33C	LD HL,$B499	"HIGHWAY ENCOUNTER" pixels address
 LB39A:	;STUB
 ; Copy shadow screen to the real screen, 256. x 155. pixels
 LB3A9:
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#<SCREEN+2000>, R2	; Address on the real screen = game screen start + 18. lines
 
 	MOV	#<LDBC0+576.>, R3	; Copy from
@@ -4030,7 +4006,7 @@ LB3A9:
 	.ENDR
 	SOB	R1, 2$
 	SOB	R4, 1$			; continue loop by lines
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN
 
 ; Routine for Title Screen
@@ -4191,7 +4167,7 @@ LB4D0:	MOVB	#6, LB4CF		; B4D0	LD A,$06
 ; NOTE: I removed the second pass used to fill attributes
 LB52D:	MOV	#LB62C, R3	; B52D	LD HL,$B62C	Info Screen Small Font Signs
 				; B530	PUSH HL
-LB531:	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+LB531:	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 LB532:	MOV	(R3)+, R2	; B531	LD D,(HL)	Screen address
 				; B532	INC HL
 				; B533	LD E,(HL)
@@ -4266,7 +4242,7 @@ LB5B4:	POP	R2		; B5B4	POP DE		restore screen address
 	INC	R2
 	BR	LB539		; B5B8	JP $B539
 LB5BB:				; B5BB	POP HL
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN
 LB627:	.BLKB	5
 	.EVEN
@@ -4361,7 +4337,7 @@ LB839:	.WORD	SCREEN+<178.*64.>+6.
 ;NOTE: I removed the first pass needed to fill in screen attributes
 ;NOTE: I added even address alignment after byte 377
 LB890:
-	MOV	#MMODE1, @#177716	; Включаем режим памяти 1
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 LB8BB:	MOV	(R3)+, R2	; B8BB	LD D,(HL)
 				; B8BC	INC HL
 				; B8BD	LD E,(HL)
@@ -4372,7 +4348,7 @@ LB8C0:	MOVB	(R3)+, R0	; B8C0	LD A,(HL)
 	CMP	R0, #254.	; B8C2	CP $FE
 	BLO	LB8C9		; B8C4	JR C,$B8C9
 	BNE	1$
-	MOV	#MMODE2, @#177716	; Включаем режим памяти 2
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN                  ; B8C6	RET Z
 1$:	BIT	#1, R3
 	BEQ	LB8BB
