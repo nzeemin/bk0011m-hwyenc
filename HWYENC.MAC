@@ -14,9 +14,11 @@ SCRIND = SCREEN + <160.*64.>	; Начало панели индикаторов
 
 ; Режимы для регистра управления памятью
 ;          .___1___...00.00
-MMODE1 = ^B0011100000000000	; 3:1 - стр.3 в 040000-100000, стр.1 в 100000-140000 -- основной
-MMODE5 = ^B0011100100000000	; 3:5 - стр.3 в 040000-100000, стр.5 (экран) в 100000-140000 -- для рисования
-; Основным является режим 2. При рисовании на экран на короткое время включается режим 1.
+MMODE0 = ^B0001110000000000	; 5:4  -  системный
+MMODE1 = ^B0011100000000000	; 3:1  -  основной
+MMODE2 = ^B0011101000000000	; 3:1  -  под прешифты
+MMODE4 = ^B0011110000000000	; 3:4  -  для загрузки
+MMODE5 = ^B0011100100000000	; 3:5  -  для рисования на экране
 
 PXCONV = 001000			; Адрес таблицы конвертации пикселей
 
@@ -31,18 +33,9 @@ START::
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 
 ; Создать таблицу PXCONV по адерсам 001000-002000, для конвертации пикселей
-	MOV	#002000, R2
-	MOV	#255., R3		; R3 бежит от 255. до 0
-1$:	CLR	R5			; в R5 будет готовое слово
-	MOV	#8., R4			; в R4 счётчик по разрядам
-	MOV	R3, R1
-2$:	ASR	R1			; 0-й бит идёт в C
-	ROR	R5			; забираем из C
-	ROR	R5
-	SOB	R4, 2$
-	MOV	R5, -(R2)		; записываем результат
-	SOB	R3, 1$
-	CLR	-(R2)			; 0-й элемент
+	CALL	PREPXC
+; Подготовить все прешифты
+	CALL	PRESHT
 
 ; Вывести надпись PRESS ANY KEY
 	MOV	#LB839, R3		; "PRESS ANY KEY"
@@ -1727,134 +1720,162 @@ L9915:	.WORD	L99D1	; Draw sprite with shift by 4px
 	.WORD	L9933	; Draw sprite with shift by -2px
 
 ; Routine: Draw sprite with shift by -2px
-; BC = адрес куда рисовать
-; DE = адрес спрайта
-L9933:	MOV	R1, R3		; 9933	LD L,C
-				; 9934	LD H,B
-	MOV	#24., R0	; 9935	LD A,$18	Sprite height = 24.
-L9937:	PUSH	R0		; 9937	EX AF,AF'
-				; 9938	EX DE,HL
-	MOV	(R2)+, R0	; 9939	LD A,(HL)
-				; 993A	INC HL
-	MOVB	(R2)+, R1	; 993B	LD B,(HL)
-				; 993C	INC HL
-				; 993D	LD C,(HL)
-				; 993E	INC HL
-	ASL	R0		; 993F	SRA A
-	ROLB	R1		; 9941	RR B
-				; 9943	RR C
-	ASL	R0		; 9945	SRA A
-	ROLB	R1		; 9947	RR B
-				; 9949	RR C
-				; 994B	EX DE,HL
-	BICB	R0, (R3)+	; 994C	AND (HL)
-				; 994D	LD (HL),A
-	SWAB	R0		; 994E	LD A,B
-				; 994F	INC HL
-	BICB	R0, (R3)+	; 9950	AND (HL)
-				; 9951	LD (HL),A
-				; 9952	LD A,C
-				; 9953	INC HL
-	BICB	R1, (R3)	; 9954	AND (HL)
-				; 9955	LD (HL),A
-	DEC	R3		; 9956	DEC HL
-	DEC	R3		; 9957	DEC HL
-				; 9958	EX DE,HL
-	MOVB	(R2)+, R0	; 9959	LD A,(HL)
-				; 995A	INC HL
-	MOV	(R2)+, R1	; 995B	LD B,(HL)
-				; 995C	INC HL
-				; 995D	LD C,(HL)
-				; 995E	INC HL
-	ASLB	R0		; 995F	SRL A
-	ROL	R1		; 9961	RR B
-				; 9963	RR C
-	ASLB	R0		; 9965	SRL A
-	ROL	R1		; 9967	RR B
-				; 9969	RR C
-				; 996B	EX DE,HL
-	BISB	R0, (R3)+	; 996C	OR (HL)
-				; 996D	LD (HL),A
-				; 996E	LD A,B
-				; 996F	INC HL
-	BISB	R1, (R3)+	; 9970	OR (HL)
-				; 9971	LD (HL),A
-	SWAB	R1		; 9972	LD A,C
-				; 9973	INC HL
-	BISB	R1, (R3)	; 9974	OR (HL)
-				; 9975	LD (HL),A
-	SUB	#34., R3	; 9976	LD BC,$FFDE
-				; 9979	ADD HL,BC
-	POP	R0		; 997A	EX AF,AF'
-	SOB	R0, L9937	; 997B	DEC A
-				; 997C	JP NZ,$9937
+; R1 = адрес куда рисовать
+; R2 = адрес спрайта
+; Используем прешифт спрайты со страницы 2
+L9933:
+	SUB	#LB8F0, R2		; теперь R2 = смещение от начала области спрайтов
+	ADD	#100000, R2		; R2 = адрес спрайта в прешифтах
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2 - прешифты
+	CALL	L9A70			; Используем обычную процедуру рисования
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+;
+;	MOV	R1, R3		; 9933	LD L,C
+;				; 9934	LD H,B
+;	MOV	#24., R0	; 9935	LD A,$18	Sprite height = 24.
+;L9937:	PUSH	R0		; 9937	EX AF,AF'
+;				; 9938	EX DE,HL
+;	MOV	(R2)+, R0	; 9939	LD A,(HL)
+;				; 993A	INC HL
+;	MOVB	(R2)+, R1	; 993B	LD B,(HL)
+;				; 993C	INC HL
+;				; 993D	LD C,(HL)
+;				; 993E	INC HL
+;	ASL	R0		; 993F	SRA A
+;	ROLB	R1		; 9941	RR B
+;				; 9943	RR C
+;	ASL	R0		; 9945	SRA A
+;	ROLB	R1		; 9947	RR B
+;				; 9949	RR C
+;				; 994B	EX DE,HL
+;	BICB	R0, (R3)+	; 994C	AND (HL)
+;				; 994D	LD (HL),A
+;	SWAB	R0		; 994E	LD A,B
+;				; 994F	INC HL
+;	BICB	R0, (R3)+	; 9950	AND (HL)
+;				; 9951	LD (HL),A
+;				; 9952	LD A,C
+;				; 9953	INC HL
+;	BICB	R1, (R3)	; 9954	AND (HL)
+;				; 9955	LD (HL),A
+;	DEC	R3		; 9956	DEC HL
+;	DEC	R3		; 9957	DEC HL
+;				; 9958	EX DE,HL
+;	MOVB	(R2)+, R0	; 9959	LD A,(HL)
+;				; 995A	INC HL
+;	MOV	(R2)+, R1	; 995B	LD B,(HL)
+;				; 995C	INC HL
+;				; 995D	LD C,(HL)
+;				; 995E	INC HL
+;	ASLB	R0		; 995F	SRL A
+;	ROL	R1		; 9961	RR B
+;				; 9963	RR C
+;	ASLB	R0		; 9965	SRL A
+;	ROL	R1		; 9967	RR B
+;				; 9969	RR C
+;				; 996B	EX DE,HL
+;	BISB	R0, (R3)+	; 996C	OR (HL)
+;				; 996D	LD (HL),A
+;				; 996E	LD A,B
+;				; 996F	INC HL
+;	BISB	R1, (R3)+	; 9970	OR (HL)
+;				; 9971	LD (HL),A
+;	SWAB	R1		; 9972	LD A,C
+;				; 9973	INC HL
+;	BISB	R1, (R3)	; 9974	OR (HL)
+;				; 9975	LD (HL),A
+;	SUB	#34., R3	; 9976	LD BC,$FFDE
+;				; 9979	ADD HL,BC
+;	POP	R0		; 997A	EX AF,AF'
+;	SOB	R0, L9937	; 997B	DEC A
+;				; 997C	JP NZ,$9937
 	RETURN			; 997F	RET
 
 ; Routine: Draw sprite with shift by 4px
+; R1 = адрес куда рисовать
+; R2 = адрес спрайта
+; Используем прешифт спрайты со страницы 2, с адреса 120020
 L99D1:
-	MOV	R1, R3		; 99D1	LD H,B
-				; 99D2	LD L,C
-	MOV	#24., R0	; 99D3	LD A,$18	Sprite height = 24.
-L99D5:	PUSH	R0		; 99D5	EX AF,AF'	store counter A
-				; 99D6	EX DE,HL
-	MOV	(R2)+, R0	; 99D7	LD A,(HL)	Get mask byte 0
-				; 99D8	INC HL
-				; 99D9	LD B,(HL)	Get mask byte 1
-				; 99DA	INC HL
-	MOVB	(R2)+, R1	; 99DB	LD C,(HL)	Get mask byte 2
-				; 99DC	INC HL
-				; 99DD	SCF
-	ASRB	R1		; 99DE	RL C		Shift by 1
-	ROR	R0		; 99E0	RL B
-				; 99E2	RLA
-	ASRB	R1		; 99E3	RL C		Shift by 2
-	ROR	R0		; 99E5	RL B
-				; 99E7	RLA
-	ASRB	R1		; 99E8	RL C		Shift by 3
-	ROR	R0		; 99EA	RL B
-				; 99EC	RLA
-	ASRB	R1		; 99ED	RL C		Shift by 4
-	ROR	R0		; 99EF	RL B
-				; 99F1	RLA
-				; 99F2	EX DE,HL
-	BICB	R0, (R3)+	; 99F3	AND (HL)
-				; 99F4	LD (HL),A
-	SWAB	R0		; 99F5	LD A,B
-				; 99F6	INC HL
-	BICB	R0, (R3)	; 99F7	AND (HL)
-				; 99F8	LD (HL),A
-	DEC	R3		; 99F9	DEC HL
-				; 99FA	EX DE,HL
-	MOVB	(R2)+, R0	; 99FB	LD A,(HL)
-				; 99FC	INC HL
-	MOV	(R2)+, R1	; 99FD	LD B,(HL)
-				; 99FE	INC HL
-				; 99FF	LD C,(HL)
-				; 9A00	INC HL
-	ASR	R1		; 9A01	SLA C		Shift by 1
-	RORB	R0		; 9A03	RL B
-				; 9A05	RLA
-	ASR	R1		; 9A06	SLA C		Shift by 2
-	RORB	R0		; 9A08	RL B
-				; 9A0A	RLA
-	ASR	R1		; 9A0B	SLA C		Shift by 3
-	RORB	R0		; 9A0D	RL B
-				; 9A0F	RLA
-	ASR	R1		; 9A10	SLA C		Shift by 4
-	RORB	R0		; 9A12	RL B
-				; 9A14	RLA
-				; 9A15	EX DE,HL
-	BISB	R0, (R3)+	; 9A16	OR (HL)
-				; 9A17	LD (HL),A
-				; 9A18	LD A,B
-				; 9A19	INC HL
-	BISB	R1, (R3)	; 9A1A	OR (HL)
-				; 9A1B	LD (HL),A
-	SUB	#33., R3	; 9A1C	LD BC,$FFDF
-				; 9A1F	ADD HL,BC
-	POP	R0		; 9A20	EX AF,AF'	restore counter A
-	SOB	R0, L99D5	; 9A21	DEC A
-				; 9A22	JP NZ,$99D5	loop by sprite height
+	SUB	#LB8F0, R2		; теперь R2 = смещение от начала области спрайтов
+	ADD	#120020, R2		; R2 = адрес спрайта в прешифтах
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2 - прешифты
+;
+	MOV	#8., R3		; 9A72	LD B,$18	счётчик цикла = 24.
+10$:	.REPT	3			; loop unroll x3
+	BICB	(R2)+, (R1)+
+	BICB	(R2)+, (R1)
+	DEC	R1
+	BISB	(R2)+, (R1)+
+	BISB	(R2)+, (R1)
+	SUB	#33., R1
+	.ENDR
+	SOB	R3, 10$
+;
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+
+;	MOV	R1, R3		; 99D1	LD H,B
+;				; 99D2	LD L,C
+;	MOV	#24., R0	; 99D3	LD A,$18	Sprite height = 24.
+;L99D5:	PUSH	R0		; 99D5	EX AF,AF'	store counter A
+;				; 99D6	EX DE,HL
+;	MOV	(R2)+, R0	; 99D7	LD A,(HL)	Get mask byte 0
+;				; 99D8	INC HL
+;				; 99D9	LD B,(HL)	Get mask byte 1
+;				; 99DA	INC HL
+;	MOVB	(R2)+, R1	; 99DB	LD C,(HL)	Get mask byte 2
+;				; 99DC	INC HL
+;				; 99DD	SCF
+;	ASRB	R1		; 99DE	RL C		Shift by 1
+;	ROR	R0		; 99E0	RL B
+;				; 99E2	RLA
+;	ASRB	R1		; 99E3	RL C		Shift by 2
+;	ROR	R0		; 99E5	RL B
+;				; 99E7	RLA
+;	ASRB	R1		; 99E8	RL C		Shift by 3
+;	ROR	R0		; 99EA	RL B
+;				; 99EC	RLA
+;	ASRB	R1		; 99ED	RL C		Shift by 4
+;	ROR	R0		; 99EF	RL B
+;				; 99F1	RLA
+;				; 99F2	EX DE,HL
+;	BICB	R0, (R3)+	; 99F3	AND (HL)
+;				; 99F4	LD (HL),A
+;	SWAB	R0		; 99F5	LD A,B
+;				; 99F6	INC HL
+;	BICB	R0, (R3)	; 99F7	AND (HL)
+;				; 99F8	LD (HL),A
+;	DEC	R3		; 99F9	DEC HL
+;				; 99FA	EX DE,HL
+;	MOVB	(R2)+, R0	; 99FB	LD A,(HL)
+;				; 99FC	INC HL
+;	MOV	(R2)+, R1	; 99FD	LD B,(HL)
+;				; 99FE	INC HL
+;				; 99FF	LD C,(HL)
+;				; 9A00	INC HL
+;	ASR	R1		; 9A01	SLA C		Shift by 1
+;	RORB	R0		; 9A03	RL B
+;				; 9A05	RLA
+;	ASR	R1		; 9A06	SLA C		Shift by 2
+;	RORB	R0		; 9A08	RL B
+;				; 9A0A	RLA
+;	ASR	R1		; 9A0B	SLA C		Shift by 3
+;	RORB	R0		; 9A0D	RL B
+;				; 9A0F	RLA
+;	ASR	R1		; 9A10	SLA C		Shift by 4
+;	RORB	R0		; 9A12	RL B
+;				; 9A14	RLA
+;				; 9A15	EX DE,HL
+;	BISB	R0, (R3)+	; 9A16	OR (HL)
+;				; 9A17	LD (HL),A
+;				; 9A18	LD A,B
+;				; 9A19	INC HL
+;	BISB	R1, (R3)	; 9A1A	OR (HL)
+;				; 9A1B	LD (HL),A
+;	SUB	#33., R3	; 9A1C	LD BC,$FFDF
+;				; 9A1F	ADD HL,BC
+;	POP	R0		; 9A20	EX AF,AF'	restore counter A
+;	SOB	R0, L99D5	; 9A21	DEC A
+;				; 9A22	JP NZ,$99D5	loop by sprite height
 	RETURN			; 9A25	RET
 
 ; Routine: Draw sprite with shift by 2px
@@ -4405,6 +4426,106 @@ LFD00:	.BLKB	553.			; Drawing markers area
 LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
 	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
 	.EVEN
+
+;------------------------------------------------------------------------------
+
+; Создать таблицу PXCONV по адерсам 001000-002000, для конвертации пикселей
+PREPXC:
+	MOV	#002000, R2
+	MOV	#255., R3		; R3 бежит от 255. до 0
+1$:	CLR	R5			; в R5 будет готовое слово
+	MOV	#8., R4			; в R4 счётчик по разрядам
+	MOV	R3, R1
+2$:	ASR	R1			; 0-й бит идёт в C
+	ROR	R5			; забираем из C
+	ROR	R5
+	SOB	R4, 2$
+	MOV	R5, -(R2)		; записываем результат
+	SOB	R3, 1$
+	CLR	-(R2)			; 0-й элемент
+	RETURN
+
+; Подготовить все прешифты
+PRESHT:
+; Прешифтим -2px в страницу 2; будет использоваться процедурой L9933
+	MOV	#LB8F0, R2		; Адрес спрайтов с маской
+	MOV	#100000, R3		; Адрес куда сохранять прешифт
+	MOV	#57., R5		; количество спрайтов
+11$:	MOV	#24., R4		; количество строк
+12$:
+; Шифтим маску -2px
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+	MOV	(R2)+, R0
+	MOVB	(R2)+, R1
+	ASL	R0
+	ROLB	R1
+	ASL	R0
+	ROLB	R1
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2 - прешифты
+	MOV	R0, (R3)+
+	MOVB	R1, (R3)+
+; Шифтим пиксели -2px
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+	MOVB	(R2)+, R0
+	MOV	(R2)+, R1
+	ASLB	R0
+	ROL	R1
+	ASLB	R0
+	ROL	R1
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2 - прешифты
+	MOVB	R0, (R3)+
+	MOV	R1, (R3)+
+;
+	SOB	R4, 12$			; продолжение цикла по строкам
+	SOB	R5, 11$			; продолжение цикла по спрайтам
+; Теперь R3 = <100000+8208.> = 120020 = указывает на начало свободной области в странице 2
+;
+; Прешифтим 4px в страницу 2; будет использоваться процедурой L99D1
+	MOV	#LB8F0, R2		; Адрес спрайтов с маской
+	MOV	#57., R5		; количество спрайтов
+21$:	MOV	#24., R4		; количество строк
+22$:
+; Шифтим маску +4px
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+	MOV	(R2)+, R0
+	MOVB	(R2)+, R1
+	ASRB	R1
+	ROR	R0
+	ASRB	R1
+	ROR	R0
+	ASRB	R1
+	ROR	R0
+	ASRB	R1
+	ROR	R0
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2 - прешифты
+	MOV	R0, (R3)+		; Сохраняем только два байта, третий пустой
+; Шифтим пиксели +4px
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+	MOVB	(R2)+, R0
+	MOV	(R2)+, R1
+	ASR	R1
+	RORB	R0
+	ASR	R1
+	RORB	R0
+	ASR	R1
+	RORB	R0
+	ASR	R1
+	RORB	R0
+	MOV	#MMODE2, @#177716	; Включаем режим памяти 2 - прешифты
+	MOVB	R0, (R3)+
+	MOVB	R1, (R3)+		; Сохраняем только два байта, третий пустой
+;
+	SOB	R4, 22$			; продолжение цикла по строкам
+	DEC	R5			; Последний спрайт?
+	BEQ	26$			; да => выходим
+; Дополняем пустыми словами с 96. байт до 144. байт, чтобы сохранить смещения
+	MOV	#24., R4
+24$:	CLR	(R3)+
+	SOB	R4, 24$
+	BR	21$			; продолжение цикла по спрайтам
+26$:
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+	RETURN
 
 ;------------------------------------------------------------------------------
 
