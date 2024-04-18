@@ -16,9 +16,10 @@ SCRIND = SCREEN + <160.*64.>	; Начало панели индикаторов
 ;          .___1___...00.00
 MMODE0 = ^B0001110000000000	; 5:4  -  системный
 MMODE1 = ^B0011100000000000	; 3:1  -  основной
-MMODE2 = ^B0011101000000000	; 3:1  -  под прешифты
+MMODE2 = ^B0011101000000000	; 3:2  -  под прешифты
 MMODE4 = ^B0011110000000000	; 3:4  -  для загрузки
 MMODE5 = ^B0011100100000000	; 3:5  -  для рисования на экране
+MMODE6 = ^B0011111100000000	; 3:6  -  под прешифты
 
 PXCONV = 001000			; Адрес таблицы конвертации пикселей
 
@@ -1812,7 +1813,7 @@ L99D1:
 	SOB	R3, 10$
 ;
 	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
-
+;
 ;	MOV	R1, R3		; 99D1	LD H,B
 ;				; 99D2	LD L,C
 ;	MOV	#24., R0	; 99D3	LD A,$18	Sprite height = 24.
@@ -1879,67 +1880,76 @@ L99D1:
 	RETURN			; 9A25	RET
 
 ; Routine: Draw sprite with shift by 2px
+; R1 = адрес куда рисовать
+; R2 = адрес спрайта
+; Используем прешифт спрайты со страницы 6
 L9A26:
-	MOV	R1, R3		; 9A26	LD H,B
-				; 9A27	LD L,C
-	MOV	#24., R0	; 9A28	LD A,$18	счётчик цикла = 24.
-L9A2A:	PUSH	R0		; 9A2A	EX AF,AF'
-				; 9A2B	EX DE,HL
-	MOV	(R2)+, R0	; 9A2C	LD A,(HL)
-				; 9A2D	INC HL
-				; 9A2E	LD B,(HL)
-				; 9A2F	INC HL
-	MOVB	(R2)+, R1	; 9A30	LD C,(HL)
-				; 9A31	INC HL
-				; 9A32	SCF
-	ASRB	R1		; 9A33	RL C
-	ROR	R0		; 9A35	RL B
-				; 9A37	RLA
-	ASRB	R1		; 9A38	RL C
-	ROR	R0		; 9A3A	RL B
-				; 9A3C	RLA
-				; 9A3D	EX DE,HL
-	BICB	R0, (R3)+	; 9A3E	AND (HL)
-				; 9A3F	LD (HL),A
-	SWAB	R0		; 9A40	LD A,B
-				; 9A41	INC HL
-	BICB	R0, (R3)+	; 9A42	AND (HL)
-				; 9A43	LD (HL),A
-				; 9A44	LD A,C
-				; 9A45	INC HL
-	BICB	R1, (R3)	; 9A46	AND (HL)
-				; 9A47	LD (HL),A
-	DEC	R3		; 9A48	DEC HL
-	DEC	R3		; 9A49	DEC HL
-				; 9A4A	EX DE,HL
-	MOVB	(R2)+, R0	; 9A4B	LD A,(HL)
-				; 9A4C	INC HL
-	MOV	(R2)+, R1	; 9A4D	LD B,(HL)
-				; 9A4E	INC HL
-				; 9A4F	LD C,(HL)
-				; 9A50	INC HL
-	ASR	R1		; 9A51	SLA C
-	RORB	R0		; 9A53	RL B
-				; 9A55	RLA
-	ASR	R1		; 9A56	SLA C
-	RORB	R0		; 9A58	RL B
-				; 9A5A	RLA
-				; 9A5B	EX DE,HL
-	BISB	R0, (R3)+	; 9A5C	OR (HL)
-				; 9A5D	LD (HL),A
-				; 9A5E	LD A,B
-				; 9A5F	INC HL
-	BISB	R1, (R3)+	; 9A60	OR (HL)
-				; 9A61	LD (HL),A
-	SWAB	R1		; 9A62	LD A,C
-				; 9A63	INC HL
-	BISB	R1, (R3)	; 9A64	OR (HL)
-				; 9A65	LD (HL),A
-	SUB	#34., R3	; 9A66	LD BC,$FFDE
-				; 9A69	ADD HL,BC
-	POP	R0		; 9A6A	EX AF,AF'
-	SOB	R0, L9A2A	; 9A6B	DEC A		повтор цикла
-				; 9A6C	JP NZ,$9A2A
+	SUB	#LB8F0, R2		; теперь R2 = смещение от начала области спрайтов
+	ADD	#100000, R2		; R2 = адрес спрайта в прешифтах
+	MOV	#MMODE6, @#177716	; Включаем режим памяти 2 - прешифты
+	CALL	L9A70			; Используем обычную процедуру рисования
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+;
+;	MOV	R1, R3		; 9A26	LD H,B
+;				; 9A27	LD L,C
+;	MOV	#24., R0	; 9A28	LD A,$18	счётчик цикла = 24.
+;L9A2A:	PUSH	R0		; 9A2A	EX AF,AF'
+;				; 9A2B	EX DE,HL
+;	MOV	(R2)+, R0	; 9A2C	LD A,(HL)
+;				; 9A2D	INC HL
+;				; 9A2E	LD B,(HL)
+;				; 9A2F	INC HL
+;	MOVB	(R2)+, R1	; 9A30	LD C,(HL)
+;				; 9A31	INC HL
+;				; 9A32	SCF
+;	ASRB	R1		; 9A33	RL C
+;	ROR	R0		; 9A35	RL B
+;				; 9A37	RLA
+;	ASRB	R1		; 9A38	RL C
+;	ROR	R0		; 9A3A	RL B
+;				; 9A3C	RLA
+;				; 9A3D	EX DE,HL
+;	BICB	R0, (R3)+	; 9A3E	AND (HL)
+;				; 9A3F	LD (HL),A
+;	SWAB	R0		; 9A40	LD A,B
+;				; 9A41	INC HL
+;	BICB	R0, (R3)+	; 9A42	AND (HL)
+;				; 9A43	LD (HL),A
+;				; 9A44	LD A,C
+;				; 9A45	INC HL
+;	BICB	R1, (R3)	; 9A46	AND (HL)
+;				; 9A47	LD (HL),A
+;	DEC	R3		; 9A48	DEC HL
+;	DEC	R3		; 9A49	DEC HL
+;				; 9A4A	EX DE,HL
+;	MOVB	(R2)+, R0	; 9A4B	LD A,(HL)
+;				; 9A4C	INC HL
+;	MOV	(R2)+, R1	; 9A4D	LD B,(HL)
+;				; 9A4E	INC HL
+;				; 9A4F	LD C,(HL)
+;				; 9A50	INC HL
+;	ASR	R1		; 9A51	SLA C
+;	RORB	R0		; 9A53	RL B
+;				; 9A55	RLA
+;	ASR	R1		; 9A56	SLA C
+;	RORB	R0		; 9A58	RL B
+;				; 9A5A	RLA
+;				; 9A5B	EX DE,HL
+;	BISB	R0, (R3)+	; 9A5C	OR (HL)
+;				; 9A5D	LD (HL),A
+;				; 9A5E	LD A,B
+;				; 9A5F	INC HL
+;	BISB	R1, (R3)+	; 9A60	OR (HL)
+;				; 9A61	LD (HL),A
+;	SWAB	R1		; 9A62	LD A,C
+;				; 9A63	INC HL
+;	BISB	R1, (R3)	; 9A64	OR (HL)
+;				; 9A65	LD (HL),A
+;	SUB	#34., R3	; 9A66	LD BC,$FFDE
+;				; 9A69	ADD HL,BC
+;	POP	R0		; 9A6A	EX AF,AF'
+;	SOB	R0, L9A2A	; 9A6B	DEC A		повтор цикла
+;				; 9A6C	JP NZ,$9A2A
 	RETURN			; 9A6F	RET
 
 ; Routine: Draw sprite with no shift
@@ -4524,6 +4534,39 @@ PRESHT:
 	SOB	R4, 24$
 	BR	21$			; продолжение цикла по спрайтам
 26$:
+;
+; Прешифтим 2px в страницу 6; будет использоваться процедурой L9A26
+	MOV	#LB8F0, R2		; Адрес спрайтов с маской
+	MOV	#100000, R3		; Адрес куда сохранять прешифт
+	MOV	#57., R5		; количество спрайтов
+31$:	MOV	#24., R4		; количество строк
+32$:
+; Шифтим маску -2px
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+	MOV	(R2)+, R0
+	MOVB	(R2)+, R1
+	ASRB	R1
+	ROR	R0
+	ASRB	R1
+	ROR	R0
+	MOV	#MMODE6, @#177716	; Включаем режим памяти 2 - прешифты
+	MOV	R0, (R3)+
+	MOVB	R1, (R3)+
+; Шифтим пиксели -2px
+	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+	MOVB	(R2)+, R0
+	MOV	(R2)+, R1
+	ASR	R1
+	RORB	R0
+	ASR	R1
+	RORB	R0
+	MOV	#MMODE6, @#177716	; Включаем режим памяти 2 - прешифты
+	MOVB	R0, (R3)+
+	MOV	R1, (R3)+
+;
+	SOB	R4, 32$			; продолжение цикла по строкам
+	SOB	R5, 31$			; продолжение цикла по спрайтам
+;
 	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
 	RETURN
 
