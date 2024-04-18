@@ -1990,29 +1990,39 @@ L9AB0:	MOVB	(R1), R0	; 9AB0	LD A,(BC)	<
 	BEQ	L9ACA		; 9AB2	JP Z,$9ACA	|  yes => skip the block
 	DEC	R0		; 9AB5	DEC A		|
 	MOVB	R0, (R1)	; 9AB6	LD (BC),A	|  update marker value
-	MOV	R1, R5		; 9AB7	LD IXl,B	|  save B
-	MOV	#8., R1		; 9AB9	LD B,$08	|  Цикл по строкам знакоместа, 8. строк
-L9ABB:	CLR	R0		; 9ABB	LD A,(HL)	|  <
+				; 9AB7	LD IXl,B	|  save B
+				; 9AB9	LD B,$08	|  Цикл по строкам знакоместа, 8. строк
+	PUSH	R4
+	MOV	#-64., R4
+	MOV	#-32., R5			;	   для перехода к предыдущей строке теневого экрана
+L9ABB:	.REPT	7			; loop unroll x8; R1 не портится
+	CLR	R0		; 9ABB	LD A,(HL)	|  <
 	BISB	(R3), R0			;	|  |  берём байт из теневого экрана
 	ASL	R0
 	MOV	PXCONV(R0), (R2)		;	|  |  конвертируем и выводим на экран
 				; 9ABC	LD (DE),A	|  |
-	SUB	#64., R2	; 9ABD	DEC D		|  |  к предыдущей строке экрана
+	ADD	R4, R2		; 9ABD	DEC D		|  |  к предыдущей строке экрана
 				; 9ABE	LD A,$E0	|  |
-	SUB	#32., R3	; 9AC0	ADD A,L		|  |  к предыдущей строке теневого экрана
+	ADD	R5, R3		; 9AC0	ADD A,L		|  |  к предыдущей строке теневого экрана
 				; 9AC1	LD L,A		|  |
-	SOB	R1, L9ABB	; 9AC2	DJNZ $9ABB	|  продолжение цикла по строкам
+	.ENDR
+	CLR	R0			; last iteration, w/o ADDs
+	BISB	(R3), R0
+	ASL	R0
+	MOV	PXCONV(R0), (R2)
+				; 9AC2	DJNZ $9ABB	|  продолжение цикла по строкам
 				; 9AC4	LD A,D	        |
-	ADD	#1000, R2	; 9AC5	ADD A,$08	|  на 8. экранных строк ниже
-	ADD	#256., R3	; 9AC7	LD D,A	        |
-	MOV	R5, R1		; 9AC8	LD B,IXl	|  restore B
+	ADD	#<1000-64.>, R2	; 9AC5	ADD A,$08	|  на 8. экранных строк ниже
+	ADD	#<256.-32.>, R3	; 9AC7	LD D,A	        |
+				; 9AC8	LD B,IXl	|  restore B
+	POP	R4
 L9ACA:						;	|
 	DEC	R3		; 9ACA	DEC L		|
 	DEC	R2		; 9ACB	DEC E		|  к предыдущей позиции в строке
 	DEC	R2
 	DEC	R1		; 9ACC	DEC C		|  к предыдущему элементу массива
-	SOB	R4, L9AB0	; 9ACD	DEC IXh		|
-				; 9ACF	JP NZ,$9AB0	продолжение цикла по строке
+	DEC	R4		; 9ACD	DEC IXh		|
+	BNE	L9AB0		; 9ACF	JP NZ,$9AB0	продолжение цикла по строке
 	POP	R3		; 9AD2	POP HL
 	MOVB	(R3), R0	; 9AD3	LD A,(HL)
 				; 9AD4	AND A		end of table?
