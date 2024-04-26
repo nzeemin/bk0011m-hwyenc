@@ -2820,22 +2820,22 @@ LA03B:
 	BISB	#1, R1		; A059	SET 0,B		fire
 LA05B:				; A05B	LD A,$F7
 				; A05D	IN A,($FE)	keyboard #F7FE 1 - 5
-	CMP	R0, #061 ; 1	; A05F	RRA
-	BNE	LA064		; A060	JR C,$A064	not "1" -> jump
-	BISB	#2, R1		; A062	SET 1,B		"1"
+	CMP	R0, #032 ; Up	; A05F	RRA
+	BNE	LA064		; A060	JR C,$A064	not "Up" -> jump
+	BISB	#2, R1		; A062	SET 1,B		"Up"
 LA064:				; A064	LD A,$FB
 				; A066	IN A,($FE)	keyboard #FBFE Q - T
-	CMP	R0, #121 ; Q	; A068	RRA
-	BNE	LA06D		; A069	JR C,$A06D	not "Q" -> jump
-	BISB	#4, R1		; A06B	SET 2,B		"Q"
+	CMP	R0, #033 ; Dn	; A068	RRA
+	BNE	LA06D		; A069	JR C,$A06D	not "Dn" -> jump
+	BISB	#4, R1		; A06B	SET 2,B		"Dn"
 LA06D:				; A06D	LD A,$DF
 				; A06F	IN A,($FE)	keyboard #DFFE Y - P
-	CMP	R0, #060 ; 0	; A071	RRA
-	BNE	LA076		; A072	JR C,$A076	not "P" -> jump
-	BISB	#10, R1		; A074	SET 3,B		"P", right
-LA076:	CMP	R0, #071 ; 9	; A076	RRA
-	BNE	LA07B		; A077	JR C,$A07B	not "O" -> jump
-	BISB	#20, R1		; A079	SET 4,B		"O", left
+	CMP	R0, #031 ; Rt	; A071	RRA
+	BNE	LA076		; A072	JR C,$A076	not "Rt" -> jump
+	BISB	#10, R1		; A074	SET 3,B		"Rt", right
+LA076:	CMP	R0, #010 ; Lt	; A076	RRA
+	BNE	LA07B		; A077	JR C,$A07B	not "<=" -> jump
+	BISB	#20, R1		; A079	SET 4,B		"Lt", left
 LA07B:				; A07B	LD A,B
 	MOVB	R1, L8F14	; A07C	LD ($8F14),A	set current action byte
 	BR	LA11B		; A07F	JP $A11B
@@ -3831,19 +3831,19 @@ WTKEY:	TSTB	@#177660
 	BPL	WTKEY
 	CLR	R0
 	MOVB	@#177662, R0	; символ в R0
-	CMPB	R0, #33
-	BNE	WTKEYR
-ESCKEY:	TSTB	@#177660
-	BPL	ESCKEY
-	MOVB	@#177662, R0	; символ в R0
-	BIS	#15400,R0	; #33 в верхний байт
+;	CMPB	R0, #33
+;	BNE	WTKEYR
+;ESCKEY:	TSTB	@#177660
+;	BPL	ESCKEY
+;	MOVB	@#177662, R0	; символ в R0
+;	BIS	#15400,R0	; #33 в верхний байт
 WTKEYR:	RETURN
 ; Подпрограмма: Получение символа с клавиатуры: флаг Z=0 = есть символ, R0 = полученный символ
 GETKEY:	TSTB	@#177660	; есть символ?
 	BPL	10$		; нет символа => выходим
 	MOVB	@#177662, R0	; символ в R0
-	CMPB	R0, #33		; Esc ?
-	BEQ	ESCKEY
+;	CMPB	R0, #33		; Esc ?
+;	BEQ	ESCKEY
 	RETURN
 10$:	CLR	R0		; возвращаем пустой код клавиши
 	RETURN
@@ -3853,12 +3853,12 @@ LB0DE:
 		; B0DE	LD BC,$F300
 LB0E1:
 	CALL	CLRSCR		; Очистить экран
-		; B0E1	LD HL,$785A
-		; B0E4	CALL $B203	Sound
-LB0E7:		; B0E7	XOR A
+			; B0E1	LD HL,$785A
+	CALL	LB203		; B0E4	CALL $B203	Sound
+LB0E7:			; B0E7	XOR A
 	;CALL	GETKEY		; B0E8	IN A,($FE)	Check keyboard
-		; B0EA	CPL
-		; B0EB	AND $1F
+			; B0EA	CPL
+			; B0EB	AND $1F
 	;BNE	LB0E7		; B0ED	JR NZ,$B0E7
 	CALL	LB2DA		; B0EF	CALL $B2DA	Prepare shadow screen
 	MOV	#0, LB4CF	; B0F2	XOR A
@@ -4311,17 +4311,11 @@ LB62C:	.WORD	SCREEN+<40.*64.>+16.
 	.WORD	SCREEN+<152.*64.>+6.
 	.ASCII	/DESTROY@THE@ALIEN@STRONGHOLD@/
 	.BYTE	377
-	.WORD	SCREEN+<120.*64.>+44.
-	.ASCII	/@FAST@@/
+	.WORD	SCREEN+<120.*64.>+42.
+	.ASCII	/CURSOR@KEYS@@/
 	.BYTE	377
-	.WORD	SCREEN+<128.*64.>+44.
-	.ASCII	/@SLOW@@/
-	.BYTE	377
-	.WORD	SCREEN+<120.*64.>+54.
-	.ASCII	/@LEFT@@/
-	.BYTE	377
-	.WORD	SCREEN+<128.*64.>+54.
-	.ASCII	/@RIGHT@/
+	.WORD	SCREEN+<128.*64.>+42.
+	.ASCII	/FOR@MOVEMENT@/
 	.BYTE	377
 	.WORD	SCREEN+<136.*64.>+54.
 	.ASCII	/@FIRE@@/
@@ -4345,14 +4339,6 @@ LB7B5:	.WORD	SCREEN+<32.*64.>+16.
 	.BYTE	132,212,151,137,145,142,115,135,131,143,143,131,137,136,212,377	; YOUR MISSION
 	.WORD	SCREEN+<104.*64.>+42.
 	.BYTE	131,212,123,137,136,144,142,137,134,143,212,377			; CONTROLS
-	.WORD	SCREEN+<120.*64.>+42.
-	.BYTE	131,101,377,000							; 1
-	.WORD	SCREEN+<120.*64.>+52.
-	.BYTE	131,111,377,000							; O
-	.WORD	SCREEN+<128.*64.>+42.
-	.BYTE	132,141,377,000							; Q
-	.WORD	SCREEN+<128.*64.>+52.
-	.BYTE	132,100,377,000							; P
 	.WORD	SCREEN+<136.*64.>+52.
 	.BYTE	132,112,377,000							; ' '
 	.WORD	SCREEN+<144.*64.>+42.
