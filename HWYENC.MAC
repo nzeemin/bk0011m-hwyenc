@@ -33,15 +33,13 @@ START::
 	MOV	#1000, SP
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 
-; Создать таблицу PXCONV по адерсам 001000-002000, для конвертации пикселей
-	CALL	PREPXC
-; Подготовить все прешифты
-	CALL	PRESHT
+; Подготовительные операции перед стартом: таблицы, прешифты
+	CALL	PREPAR
 
 ; Вывести надпись PRESS ANY KEY
 	MOV	#LB839, R3		; "PRESS ANY KEY"
 	CALL	LB890
-	CALL	WTKEY			; Ожидание нажатой клавиши
+1$:	CALL	WTKEY			; Ожидание нажатой клавиши
 
 ;	CALL	CLRSCR
 
@@ -65,25 +63,15 @@ FINISH:
 
 OSTACK:	.WORD	40000			; Начальное значение SP
 
-;Подпрограмма: пауза после очистки экрана чтобы ПП закончил работу
-PAUSE:	; Pause to let PPU finish the previous commands
-	MOV	#177777, R5
-1$:	NOP
-	SOB	R5, 1$
-RETN:	RETURN
-
-; Подпрограмма очистки экрана
-CLRSCR:
-	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
-	MOV	#100000, R2
-	MOV	#2048., R3
-1$:	CLR	(R2)+
-	CLR	(R2)+
-	CLR	(R2)+
-	CLR	(R2)+		; loop unroll x8
-	SOB	R3, 1$
-	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
-	RETURN
+; Надпись мелким шрифтом под главным меню
+PORTBY:
+	.WORD	SCREEN + <186.*64.> + 2.
+	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
+	.BYTE	377
+	.WORD	SCREEN + <186.*64.> + 44.
+.INCLUDE /VERSIO.MAC/
+	.BYTE	376
+	.EVEN
 
 ;------------------------------------------------------------------------------
 
@@ -2050,30 +2038,30 @@ L9AE5:	;NOP			; 9AE5	LD B,$C8
 	BR	L9B72		; 9AEC	JP $9B72
 ;
 L9AEF:	MOVB	L8F15, R0	; 9AEF	LD A,($8F15)
-	BITB	R0, #2		; 9AF2	BIT 1,A
+	BITB	#2, R0		; 9AF2	BIT 1,A
 	BEQ	L9B01		; 9AF4	JR Z,$9B01
-		; 9AF6	LD L,$04
-		; 9AF8	LD D,$46
-		; 9AFA	LD E,$08
-		; 9AFC	LD H,$FA
+	MOV	#4, R3		; 9AF6	LD L,$04
+	MOV	#70., R1	; 9AF8	LD D,$46
+	MOV	#8., R2		; 9AFA	LD E,$08
+	MOV	#-6., R4	; 9AFC	LD H,$FA
 	BR	L9B5B		; 9AFE	JP $9B5B	Sound
 L9B01:		; 9B01	LD HL,$9B46
 		; 9B04	LD (HL),$B2
-		; 9B06	BIT 6,A
+	BIT	#64., R0	; 9B06	BIT 6,A
 		; 9B08	JR Z,$9B13
 		; 9B0A	LD C,$05
 		; 9B0C	LD D,$07
 		; 9B0E	LD E,$09
 		; 9B10	JP $9B2C	Sound
 		; 9B13	LD (HL),$A2
-		; 9B15	BIT 3,A
+	BIT	#8., R0		; 9B15	BIT 3,A
 		; 9B17	JR Z,$9B22
 		; 9B19	LD C,$0A
 		; 9B1B	LD D,$3F
 		; 9B1D	LD E,$08
 		; 9B1F	JP $9B2C	Sound
-		; 9B22	BIT 7,A
-		; 9B24	JR Z,$9B4F
+	BIT	#128., R0	; 9B22	BIT 7,A
+	BEQ	L9B4F		; 9B24	JR Z,$9B4F
 		; 9B26	LD C,$02
 		; 9B28	LD D,$CC
 		; 9B2A	LD E,$0C
@@ -2081,9 +2069,35 @@ L9B01:		; 9B01	LD HL,$9B46
 L9B2C:
 	RETURN ;STUB
 
+L9B4F:	BIT	#16., R0	; 9B4F	BIT 4,A
+	BEQ	L9B6D		; 9B51	JR Z,$9B6D
+	MOV	#5., R3		; 9B53	LD L,$05
+	MOV	#30., R1	; 9B55	LD D,$1E
+	MOV	#6., R2		; 9B57	LD E,$06
+	MOV	#50., R4	; 9B59	LD H,$32
+;
 ; Sound. This entry point is used by the routine at A694.
+; D R1 = задержка между изменением бита; L R3 = длительность периода
+; H R4 = на сколько уменьшать D за период; E R2 = количество периодов
 L9B5B:
-	RETURN ;STUB
+	MOV	#220, R0		; значение для порта 177716
+10$:	PUSH	R3			; счётчик длины периода
+20$:	PUSH	R1
+30$:	NOP
+	SOB	R1, 30$
+	MOV	R0, @#177716
+	MOV	#100, R1
+	XOR	R1, R0
+	POP	R1			; восстанавливаем значение задержки
+	SOB	R3, 20$
+	POP	R3			; восстанавливаем длину периода
+	SUB	R4, R1
+	BIC	#177400, R1		; оставляем младший байт
+	SOB	R2, 10$
+	MOV	#320, @#177716		; выключаем звук
+L9B6D:	CLRB	L8F15		; 9B6D	XOR A
+				; 9B6E	LD ($8F15),A
+	RETURN
 
 ; Routine: Lasertron?
 L9B72:
@@ -2169,8 +2183,9 @@ L9BE2:	MOVB	L8F16, R0	; 9BE2	LD A,($8F16)	get the counter
 				; 9BEB	AND A
 	BEQ	L9BD9		; 9BEC	JR Z,$9BD9	обнулился? => стираем индикацию движения
 	CMPB	R0, #4		; 9BEE	CP $04
-	BEQ	L9AEF		; 9BF0	JP NZ,$9AEF
-	MOV	#1, R1		; 9BF3	LD B,$01
+	BEQ	L9BF3		; 9BF0	JP NZ,$9AEF
+	JMP	L9AEF
+L9BF3:	MOV	#1, R1		; 9BF3	LD B,$01
 	CALL	LA414		; 9BF5	CALL $A414	increment score
 	MOV	#177777, R0	; 9BF8	LD A,$42
 				; 9BFA	JR $9BD9        show movement indication
@@ -3007,8 +3022,8 @@ LA1CE:	MOVB	#22., (R2)	; A1CE	LD (HL),$16	set sprite = fireball
 	SOB	R1, 2$		; A1EF	DEC A
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	DECB	L8F18		; A1F0	LD ($8F18),A
-	MOV	#L8F15, R3	; A1F3	LD HL,$8F15
-	BISB	#2, (R3)	; A1F6	SET 1,(HL)
+				; A1F3	LD HL,$8F15
+	BISB	#2, L8F15	; A1F6	SET 1,(HL)
 ; Current action bit 0 = 0 (no fire), or DEMO mode
 LA1F8:
 	MOV	#L8F0E, R3	; A1F8	LD HL,$8F0E	addr of Main Vorton sprite phase
@@ -3895,21 +3910,12 @@ LB13C:
 LB203:
 	RETURN ;STUB
 
-PORTBY:
-	.WORD	SCREEN + <186.*64.> + 2.
-	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
-	.BYTE	377
-	.WORD	SCREEN + <186.*64.> + 44.
-.INCLUDE /VERSIO.MAC/
-	.BYTE	376
-	.EVEN
-
 ; Text for Title Screen
 LB21E:	.WORD	<SCREEN+<0.*64.>+20.>
 	.BYTE	130,212,121,145,144,130,137,142,115,123,137,143,144,121,115,140	; AUTHOR
 	.BYTE	121,136,121,151,131,212,377,000
-	.WORD	<SCREEN+<88.*64.>+48.>
-	.BYTE	131,300,212,025,050,031,044,377					; 0 EXIT
+;	.WORD	<SCREEN+<88.*64.>+48.>
+;	.BYTE	131,300,212,025,050,031,044,377					; 0 EXIT
 ;	.WORD	127127
 ;	.BYTE	131,301,212,033,025,051,022,037,021,042,024,377			; 1 KEYBOARD
 	.WORD	<SCREEN+<120.*64.>+32.>
@@ -4425,22 +4431,20 @@ LB8E2:	CLR	R0
 
 .IIF	GT <.-040000>, ERR040
 	.=040000
-
-LD900:	.BLKB	704.
+LD900:
 ; Shadow screen, 24. char-lines, 24. * 8. lines, 32. * 24. * 8. = 6144. bytes
-LDBC0:	.BLKB	832.
-LDF00:	.BLKB	2560.
-LE900:	.BLKB	512.			; Условное начало второго теневого экрана
-LEB00:	.BLKB	4608.
-LFD00:	.BLKB	553.			; Drawing markers area
-LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
-	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
-	.EVEN
+LDBC0 = LD900 + 704.
+LDF00 = LDBC0 + 832.
+LE900 = LDF00 + 2560.			; Условное начало второго теневого экрана
+LEB00 = LE900 + 512.
+LFD00 = LEB00 + 4608.			; Drawing markers area
 
 ;------------------------------------------------------------------------------
+; Область на месте теневого экрана, этот код может использоваться только в самом начале
 
+; Выполнить все подготовительные операции перед запуском основной программы
+PREPAR:
 ; Создать таблицу PXCONV по адерсам 001000-002000, для конвертации пикселей
-PREPXC:
 	MOV	#002000, R2
 	MOV	#255., R3		; R3 бежит от 255. до 0
 1$:	CLR	R5			; в R5 будет готовое слово
@@ -4453,10 +4457,9 @@ PREPXC:
 	MOV	R5, -(R2)		; записываем результат
 	SOB	R3, 1$
 	CLR	-(R2)			; 0-й элемент
-	RETURN
-
-; Подготовить все прешифты
-PRESHT:
+;
+; Подготовить все прешифты для 56. спрайтов с маской
+;
 ; Прешифтим -2px в страницу 2; будет использоваться процедурой L9933
 	MOV	#LB8F0, R2		; Адрес спрайтов с маской
 	MOV	#100000, R3		; Адрес куда сохранять прешифт
@@ -4568,6 +4571,38 @@ PRESHT:
 	SOB	R5, 31$			; продолжение цикла по спрайтам
 ;
 	MOV	#MMODE1, @#177716	; Включаем режим памяти 1 - основной
+;
+; Завершили все подготовительные операции
+	RETURN
+
+;------------------------------------------------------------------------------
+
+; Небольшая область после теневых экранов и drawing markers
+	.=<LFD00+553.>
+LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
+	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
+	.EVEN
+
+;------------------------------------------------------------------------------
+
+;Подпрограмма: пауза после очистки экрана чтобы ПП закончил работу
+PAUSE:	; Pause to let PPU finish the previous commands
+	MOV	#177777, R5
+1$:	NOP
+	SOB	R5, 1$
+RETN:	RETURN
+
+; Подпрограмма очистки экрана
+CLRSCR:
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
+	MOV	#100000, R2
+	MOV	#2048., R3
+1$:	CLR	(R2)+
+	CLR	(R2)+
+	CLR	(R2)+
+	CLR	(R2)+		; loop unroll x8
+	SOB	R3, 1$
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN
 
 ;------------------------------------------------------------------------------
