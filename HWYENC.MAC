@@ -54,6 +54,7 @@ STOP:	MOV	#1000, SP
 ;	CALL	L9423			; Preparing objects tables
 ;	CALL	L92CE			; Prepare objects for the current Zone
 ;	CALL	L95EF			; Show the screen
+;	CALL	LA617			; Animation in Zone 30.
 
 ;	CALL	LB4D0		; INFO screen
 
@@ -64,7 +65,7 @@ STOP:	MOV	#1000, SP
 FINISH:
 	CALL	CLRSCR
 ;TODO: Восстановить палитру	MOV	#???, @#177662
-	MOV	#001600, @#177716	; Вернуть стандартное значение регистра управления памятью
+	MOV	#016000, @#177716	; Вернуть стандартное значение регистра управления памятью
 	MOV	OSTACK, SP		; Восстанавливаем стек
 	JMP	@#100000		; Возврат в ANDOS
 
@@ -3971,10 +3972,8 @@ LB218:	POP	R1
 LB21E:	.WORD	<SCREEN+<0.*64.>+20.>
 	.BYTE	130,212,121,145,144,130,137,142,115,123,137,143,144,121,115,140	; AUTHOR
 	.BYTE	121,136,121,151,131,212,377,000
-;	.WORD	<SCREEN+<88.*64.>+48.>
-;	.BYTE	131,300,212,025,050,031,044,377					; 0 EXIT
-;	.WORD	127127
-;	.BYTE	131,301,212,033,025,051,022,037,021,042,024,377			; 1 KEYBOARD
+	.WORD	<SCREEN+<88.*64.>+48.>
+	.BYTE	131,300,212,025,050,031,044,377					; 0 EXIT
 	.WORD	<SCREEN+<104.*64.>+40.>
 	.BYTE	132,304,212,040,021,034,025,044,044,025,377,000			; 4 PALETTE
 	.WORD	<SCREEN+<120.*64.>+32.>
@@ -4605,10 +4604,10 @@ LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
 
 ; Надпись мелким шрифтом под главным меню
 PORTBY:
-	.WORD	SCREEN + <186.*64.> + 2.
+	.WORD	SCREEN + <192.*64.> + 2.
 	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
 	.BYTE	377
-	.WORD	SCREEN + <186.*64.> + 44.
+	.WORD	SCREEN + <192.*64.> + 44.
 .INCLUDE /VERSIO.MAC/
 	.BYTE	376
 	.EVEN
