@@ -63,6 +63,16 @@ FINISH:
 
 OSTACK:	.WORD	40000			; Начальное значение SP
 
+; Надпись мелким шрифтом под главным меню
+PORTBY:
+	.WORD	SCREEN + <186.*64.> + 2.
+	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
+	.BYTE	377
+	.WORD	SCREEN + <186.*64.> + 44.
+.INCLUDE /VERSIO.MAC/
+	.BYTE	376
+	.EVEN
+
 ;------------------------------------------------------------------------------
 
 .IIF	GT <.-002200>, ERR002
@@ -3848,6 +3858,8 @@ LAA90:	.WORD	<LD900+31>,	12.	; $19,$D9,$0C
 	.WORD	<LD900+4420>, 	17.	; $10,$E2,$11
 	.WORD	<LD900+5021>, 	8.	; $11,$E3,$08
 
+PALET:	.WORD	^B00000111000000000	; Текущее значение палитры
+
 ; Start point
 LB0DE:
 		; B0DE	LD BC,$F300
@@ -3880,29 +3892,39 @@ LB13C:
 	;TODO
 
 ; Wait for a key and roll the RND SEED while waiting
-10$:	CALL	GETKEY
-	BNE	1$
+1$:	CALL	GETKEY
+	BNE	4$
 	INC	L5C76		; RND SEED
-	BR	10$
-1$:
+	BR	1$
+4$:
+	CMP	R0, #064	; '4' ?
+	BNE	5$
+; Palette change
+	MOV	PALET, R0
+	ADD	#400, R0
+	BIC	#^B1111000011111111, R0
+	MOV	R0, @#177662
+	MOV	R0, PALET
+	BR	LB13C			; Back to menu
+5$:
 	CMP	R0, #065	; '5' ?
-	BNE	2$
+	BNE	6$
 ; Show Info Screen
 	MOV	#170., R4	; B1B6	LD HL,$785A
 	MOV	#90., R3
 	CALL	LB203		; B1B9	CALL $B203	Sound
 	CALL	CLRSCR		; Очистить экран
 	JMP	LB4D0		; B1BC	JP $B4D0	Show Info Screen
-2$:	CMP	R0, #066	; '6' ?
-	BNE	3$
+6$:	CMP	R0, #066	; '6' ?
+	BNE	7$
 ; Switch to DEMO mode
 	MOV	#100., R4	; B176	LD HL,$646E
 	MOV	#110., R3
 	CALL	LB203		; B179	CALL $B203	Sound
 	CALL	LA367		; B17C	CALL $8F79	JP A367  DEMO MODE
 	BR	LB0DE		; B17F	JP $B0E7	back to start point
-3$:	CMP	R0, #067	; '7' ?
-	BNE	4$
+7$:	CMP	R0, #067	; '7' ?
+	BNE	10$
 ; Switch to GAME mode
 	MOV	#84., R4	; B186	LD HL,$54A0
 	MOV	#160., R3
@@ -3913,10 +3935,10 @@ LB13C:
 	CALL	WTKEY ;STUB
 	;TODO
         BR	LB0DE 		; B1AA	JP $B0E7	back to start point
-4$:	CMP	R0, #060	; '0' ?
-	BNE	5$
+10$:	CMP	R0, #060	; '0' ?
+	BNE	20$
 	JMP	FINISH		; Finish and exit the app
-5$:
+20$:
 	BR	LB13C		; B200	JP $B13C
 
 ; Routine: Sound
@@ -3956,6 +3978,8 @@ LB21E:	.WORD	<SCREEN+<0.*64.>+20.>
 ;	.BYTE	131,300,212,025,050,031,044,377					; 0 EXIT
 ;	.WORD	127127
 ;	.BYTE	131,301,212,033,025,051,022,037,021,042,024,377			; 1 KEYBOARD
+	.WORD	<SCREEN+<104.*64.>+40.>
+	.BYTE	132,304,212,040,021,034,025,044,044,025,377,000			; 4 PALETTE
 	.WORD	<SCREEN+<120.*64.>+32.>
 	.BYTE	132,305,212,031,036,026,037,042,035,021,044,031,037,036,377,000	; 5 INFORMATION
 	.WORD	<SCREEN+<136.*64.>+24.>
@@ -4581,16 +4605,6 @@ LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
 	.EVEN
 
 ;------------------------------------------------------------------------------
-
-; Надпись мелким шрифтом под главным меню
-PORTBY:
-	.WORD	SCREEN + <186.*64.> + 2.
-	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
-	.BYTE	377
-	.WORD	SCREEN + <186.*64.> + 44.
-.INCLUDE /VERSIO.MAC/
-	.BYTE	376
-	.EVEN
 
 ; Info Screen Text
 LB7B5:	.WORD	SCREEN+<32.*64.>+16.
