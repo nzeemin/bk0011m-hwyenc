@@ -2048,27 +2048,57 @@ L9AEF:	MOVB	L8F15, R0	; 9AEF	LD A,($8F15)
 L9B01:		; 9B01	LD HL,$9B46
 		; 9B04	LD (HL),$B2
 	BIT	#64., R0	; 9B06	BIT 6,A
-		; 9B08	JR Z,$9B13
-		; 9B0A	LD C,$05
-		; 9B0C	LD D,$07
-		; 9B0E	LD E,$09
-		; 9B10	JP $9B2C	Sound
-		; 9B13	LD (HL),$A2
+	BEQ	L9B13		; 9B08	JR Z,$9B13
+	MOV	#5., R1		; 9B0A	LD C,$05
+	MOV	#7., R2		; 9B0C	LD D,$07
+	MOV	#9., R3		; 9B0E	LD E,$09
+	BR	L9B2C		; 9B10	JP $9B2C	Sound
+L9B13:		; 9B13	LD (HL),$A2
 	BIT	#8., R0		; 9B15	BIT 3,A
-		; 9B17	JR Z,$9B22
-		; 9B19	LD C,$0A
-		; 9B1B	LD D,$3F
-		; 9B1D	LD E,$08
-		; 9B1F	JP $9B2C	Sound
-	BIT	#128., R0	; 9B22	BIT 7,A
+	BEQ	L9B22		; 9B17	JR Z,$9B22
+	MOV	#10., R1	; 9B19	LD C,$0A
+	MOV	#63., R2	; 9B1B	LD D,$3F
+	MOV	#8., R3		; 9B1D	LD E,$08
+	BR	L9B2C		; 9B1F	JP $9B2C	Sound
+L9B22:	BIT	#128., R0	; 9B22	BIT 7,A
 	BEQ	L9B4F		; 9B24	JR Z,$9B4F
-		; 9B26	LD C,$02
-		; 9B28	LD D,$CC
-		; 9B2A	LD E,$0C
+	MOV	#2., R1		; 9B26	LD C,$02
+	MOV	#204., R2	; 9B28	LD D,$CC
+	MOV	#12., R3	; 9B2A	LD E,$0C
 ; Sound. This entry point is used by the routine at A694.
-L9B2C:
-	RETURN ;STUB
-
+; C R1 = биты, влияющие на задержку между переключением бита звука
+; D R2 = биты, влияющие на длину периода
+; E R3 = общая длительность звука
+L9B2C:	MOV	#2, R5		; 9B2C	LD B,$02
+	MOV	#2, R4		; 9B2E	LD L,$02
+L9B30:	PUSH	R1		; 9B30	XOR A		Border 0
+	MOV	#220, R0		; значение для порта 177716
+L9B31:	MOV	#100, R1
+	PUSH	R5		; 9B33	PUSH BC
+	XOR	R1, R0		; 9B31	XOR $18
+L9B34:	MOV	R0, @#177716	; 9B34	OUT ($FE),A	Output EAR/MIC
+	SOB	R5, L9B34	; 9B36	DJNZ $9B34	wait
+	POP	R5		; 9B38	POP BC
+				; 9B39	DEC L
+	SOB	R4, L9B31	; 9B3A	JR NZ,$9B31	loop
+	POP	R1
+	PUSH	R3		; 9B3C	PUSH DE
+	PUSH	R2
+	CALL	LA270		; 9B3D	CALL $A270	get next random number
+	POP	R2		; 9B40	POP DE
+	MOV	R1, R4		; 9B41	LD A,L
+	BICB	R3, R4		; 9B42	AND C
+	INCB	R4		; 9B43	INC A
+				; 9B44	LD L,A
+	SWAB	R3			; теперь используем второй байт
+	MOV	R2, R5
+	BICB	R3, R5
+	INCB	R5		; 9B47	INC A
+	POP	R3
+				; 9B49	DEC E
+	SOB	R3, L9B30	; 9B4A	JR NZ,$9B30	repeat
+	BR	L9B6D		; 9B4C	JP $9B6D
+;
 L9B4F:	BIT	#16., R0	; 9B4F	BIT 4,A
 	BEQ	L9B6D		; 9B51	JR Z,$9B6D
 	MOV	#5., R3		; 9B53	LD L,$05
@@ -3109,6 +3139,8 @@ LA26E:	MOVB	R0, (R3)	; A26E	LD (HL),A	set Ufo sprite phase
 	RETURN			; A26F	RET
 
 ; Routine: Get pseudo-random number, result in HL
+; Портит: R0, R2, R3
+; Результат в R3
 LA270:
 	MOV	L5C76, R2	; A270	LD DE,($5C76)	; Read RND SEED variable
 	MOV	R2, R3		; A274	LD H,E
@@ -3826,34 +3858,14 @@ LAA90:	.WORD	<LD900+31>,	12.	; $19,$D9,$0C
 	.WORD	<LD900+4420>, 	17.	; $10,$E2,$11
 	.WORD	<LD900+5021>, 	8.	; $11,$E3,$08
 
-; Подпрограмма: Ожидание символа с клавиатуры: R0 = полученный символ
-WTKEY:	TSTB	@#177660
-	BPL	WTKEY
-	CLR	R0
-	MOVB	@#177662, R0	; символ в R0
-;	CMPB	R0, #33
-;	BNE	WTKEYR
-;ESCKEY:	TSTB	@#177660
-;	BPL	ESCKEY
-;	MOVB	@#177662, R0	; символ в R0
-;	BIS	#15400,R0	; #33 в верхний байт
-WTKEYR:	RETURN
-; Подпрограмма: Получение символа с клавиатуры: флаг Z=0 = есть символ, R0 = полученный символ
-GETKEY:	TSTB	@#177660	; есть символ?
-	BPL	10$		; нет символа => выходим
-	MOVB	@#177662, R0	; символ в R0
-;	CMPB	R0, #33		; Esc ?
-;	BEQ	ESCKEY
-	RETURN
-10$:	CLR	R0		; возвращаем пустой код клавиши
-	RETURN
-
 ; Start point
 LB0DE:
 		; B0DE	LD BC,$F300
 LB0E1:
 	CALL	CLRSCR		; Очистить экран
-			; B0E1	LD HL,$785A
+; Звук перед показом экрана меню
+	MOV	#170., R4	; B0E1	LD HL,$785A
+	MOV	#90., R3
 	CALL	LB203		; B0E4	CALL $B203	Sound
 LB0E7:			; B0E7	XOR A
 	;CALL	GETKEY		; B0E8	IN A,($FE)	Check keyboard
@@ -3886,17 +3898,28 @@ LB13C:
 	CMP	R0, #065	; '5' ?
 	BNE	2$
 ; Show Info Screen
+	MOV	#170., R4	; B1B6	LD HL,$785A
+	MOV	#90., R3
+	CALL	LB203		; B1B9	CALL $B203	Sound
 	CALL	CLRSCR		; Очистить экран
 	JMP	LB4D0		; B1BC	JP $B4D0	Show Info Screen
 2$:	CMP	R0, #066	; '6' ?
 	BNE	3$
 ; Switch to DEMO mode
+	MOV	#100., R4	; B176	LD HL,$646E
+	MOV	#110., R3
+	CALL	LB203		; B179	CALL $B203	Sound
 	CALL	LA367		; B17C	CALL $8F79	JP A367  DEMO MODE
 	BR	LB0DE		; B17F	JP $B0E7	back to start point
 3$:	CMP	R0, #067	; '7' ?
 	BNE	4$
 ; Switch to GAME mode
+	MOV	#84., R4	; B186	LD HL,$54A0
+	MOV	#160., R3
+	CALL	LB203		; B189	CALL $B203	Sound
 	CALL	L90F2		; B18C	CALL $90F2	GAME MODE
+		; B18F	LD HL,$C801
+		; B192	CALL $B203	Sound
 	CALL	WTKEY ;STUB
 	;TODO
         BR	LB0DE 		; B1AA	JP $B0E7	back to start point
@@ -3907,8 +3930,33 @@ LB13C:
 	BR	LB13C		; B200	JP $B13C
 
 ; Routine: Sound
+; H R4 = общая длительность звука; L R3 = тон??
 LB203:
-	RETURN ;STUB
+	MOV	#220, R0		; значение для порта 177716
+				; B203	LD C,H
+	MOV	R3, R2		; B206	LD D,L
+	MOV	R3, R5		; B207	LD E,D
+	DECB	R5		; B208	DEC E
+LB208:	MOV	#96., R1		; теперь это B
+LB209:	PUSH	R1
+	MOV	R0, @#177716	; B209	OUT ($FE),A	Set/reset EAR and MIC bits
+	INCB	R2		; B20B	INC D
+	BNE	LB211		; B20C	JR NZ,$B211
+LB20E:	MOV	R3, R2		; B20E	LD D,L
+	MOV	#100, R1
+	XOR	R1, R0		; B20F	XOR $18		Inverse EAR and MIC bits
+LB211:	INCB	R5		; B211	INC E
+	BNE	LB218		; B212	JR NZ,$B218
+	MOV	R3, R5		; B214	LD E,L
+	DECB	R5		; B215	DEC E
+	MOV	#100, R1
+	XOR	R1, R0		; B216	XOR $18		Inverse EAR and MIC bits
+LB218:	POP	R1
+	SOB	R1, LB209	; B218	DJNZ $B209	repeat
+				; B21A	DEC C
+	SOB	R4, LB208	; B21B	JR NZ,$B209	repeat
+	MOV	#320, @#177716		; выключаем звук
+	RETURN
 
 ; Text for Title Screen
 LB21E:	.WORD	<SCREEN+<0.*64.>+20.>
@@ -4283,6 +4331,7 @@ LB5BB:				; B5BB	POP HL
 	RETURN
 LB627:	.BLKB	5
 	.EVEN
+
 ; Info Screen small text
 LB62C:	.WORD	SCREEN+<40.*64.>+16.
 	.ASCII	/PROGRAMMED@TO@PUSH@THE@LASERTRON@/
@@ -4326,34 +4375,6 @@ LB62C:	.WORD	SCREEN+<40.*64.>+16.
 	.WORD	SCREEN+<152.*64.>+46.
 	.ASCII	/@ABORT@GAME@/
 	.BYTE	376
-	.EVEN
-
-; Info Screen Text
-LB7B5:	.WORD	SCREEN+<32.*64.>+16.
-	.BYTE	130,212,121,145,144,137,116,146,137,142,144,137,136,143,212,377	; AUTO-VORTONS
-	.WORD	SCREEN+<64.*64.>+24.
-	.BYTE	131,212,134,121,143,125,142,144,142,137,136,212,377,000		; LASERTRON
-	.WORD	SCREEN+<96.*64.>+2.
-	.BYTE	131,212,135,121,131,136,115,146,137,142,144,137,136,212,377,000	; MAIN VORTON
-	.WORD	SCREEN+<128.*64.>+6.
-	.BYTE	132,212,151,137,145,142,115,135,131,143,143,131,137,136,212,377	; YOUR MISSION
-	.WORD	SCREEN+<104.*64.>+42.
-	.BYTE	131,212,123,137,136,144,142,137,134,143,212,377			; CONTROLS
-	.WORD	SCREEN+<136.*64.>+52.
-	.BYTE	132,112,377,000							; ' '
-	.WORD	SCREEN+<144.*64.>+42.
-	.BYTE	132,114,140,377							; ^P
-	.WORD	SCREEN+<152.*64.>+42.
-	.BYTE	132,114,123,377							; ^C
-	.WORD	SCREEN+<0.*64.>+12.
-	.BYTE	130,312,130,131,127,130,147,121,151,115,115,125,136,123,137,145 ; HIGHWAY
-	.BYTE	136,144,125,142,312,377						; ENCOUNTER
-	.WORD	SCREEN+<8.*64.>+8.
-	.BYTE	130,212,123,134,121,143,143,131,126,131,125,124,115,131,136,126 ; CLASSIFIED
-	.BYTE	137,142,135,121,144,131,137,136,212,377				; INFORMATION
-LB839:	.WORD	SCREEN+<178.*64.>+6.
-	.BYTE	132,212,140,142,125,143,143,115,121,136,151,115,133,125,151,115	; PRESS ANY KEY
-	.BYTE	147,130,125,136,115,142,125,121,124,151,212,376			; WHEN READY
 	.EVEN
 
 ; Routine: Print Text
@@ -4571,8 +4592,58 @@ LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
 
 ;------------------------------------------------------------------------------
 
-;Подпрограмма: пауза после очистки экрана чтобы ПП закончил работу
-PAUSE:	; Pause to let PPU finish the previous commands
+; Info Screen Text
+LB7B5:	.WORD	SCREEN+<32.*64.>+16.
+	.BYTE	130,212,121,145,144,137,116,146,137,142,144,137,136,143,212,377	; AUTO-VORTONS
+	.WORD	SCREEN+<64.*64.>+24.
+	.BYTE	131,212,134,121,143,125,142,144,142,137,136,212,377,000		; LASERTRON
+	.WORD	SCREEN+<96.*64.>+2.
+	.BYTE	131,212,135,121,131,136,115,146,137,142,144,137,136,212,377,000	; MAIN VORTON
+	.WORD	SCREEN+<128.*64.>+6.
+	.BYTE	132,212,151,137,145,142,115,135,131,143,143,131,137,136,212,377	; YOUR MISSION
+	.WORD	SCREEN+<104.*64.>+42.
+	.BYTE	131,212,123,137,136,144,142,137,134,143,212,377			; CONTROLS
+	.WORD	SCREEN+<136.*64.>+52.
+	.BYTE	132,112,377,000							; ' '
+	.WORD	SCREEN+<144.*64.>+42.
+	.BYTE	132,114,140,377							; ^P
+	.WORD	SCREEN+<152.*64.>+42.
+	.BYTE	132,114,123,377							; ^C
+	.WORD	SCREEN+<0.*64.>+12.
+	.BYTE	130,312,130,131,127,130,147,121,151,115,115,125,136,123,137,145 ; HIGHWAY
+	.BYTE	136,144,125,142,312,377						; ENCOUNTER
+	.WORD	SCREEN+<8.*64.>+8.
+	.BYTE	130,212,123,134,121,143,143,131,126,131,125,124,115,131,136,126 ; CLASSIFIED
+	.BYTE	137,142,135,121,144,131,137,136,212,377				; INFORMATION
+LB839:	.WORD	SCREEN+<178.*64.>+6.
+	.BYTE	132,212,140,142,125,143,143,115,121,136,151,115,133,125,151,115	; PRESS ANY KEY
+	.BYTE	147,130,125,136,115,142,125,121,124,151,212,376			; WHEN READY
+	.EVEN
+
+; Подпрограмма: Ожидание символа с клавиатуры: R0 = полученный символ
+WTKEY:	TSTB	@#177660
+	BPL	WTKEY
+	CLR	R0
+	MOVB	@#177662, R0	; символ в R0
+;	CMPB	R0, #33
+;	BNE	WTKEYR
+;ESCKEY:	TSTB	@#177660
+;	BPL	ESCKEY
+;	MOVB	@#177662, R0	; символ в R0
+;	BIS	#15400,R0	; #33 в верхний байт
+WTKEYR:	RETURN
+; Подпрограмма: Получение символа с клавиатуры: флаг Z=0 = есть символ, R0 = полученный символ
+GETKEY:	TSTB	@#177660	; есть символ?
+	BPL	10$		; нет символа => выходим
+	MOVB	@#177662, R0	; символ в R0
+;	CMPB	R0, #33		; Esc ?
+;	BEQ	ESCKEY
+	RETURN
+10$:	CLR	R0		; возвращаем пустой код клавиши
+	RETURN
+
+;Подпрограмма: пауза
+PAUSE:
 	MOV	#177777, R5
 1$:	NOP
 	SOB	R5, 1$
