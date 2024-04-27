@@ -38,7 +38,7 @@ START::
 
 ; Вывести надпись PRESS ANY KEY
 	MOV	#LB839, R3		; "PRESS ANY KEY"
-	CALL	LB890
+	CALL	LB890			; Print text
 1$:	CALL	WTKEY			; Ожидание нажатой клавиши
 
 ;	CALL	CLRSCR
@@ -62,16 +62,6 @@ FINISH:
 	JMP	@#100000		; Возврат в ANDOS
 
 OSTACK:	.WORD	40000			; Начальное значение SP
-
-; Надпись мелким шрифтом под главным меню
-PORTBY:
-	.WORD	SCREEN + <186.*64.> + 2.
-	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
-	.BYTE	377
-	.WORD	SCREEN + <186.*64.> + 44.
-.INCLUDE /VERSIO.MAC/
-	.BYTE	376
-	.EVEN
 
 ;------------------------------------------------------------------------------
 
@@ -4591,6 +4581,16 @@ LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
 	.EVEN
 
 ;------------------------------------------------------------------------------
+
+; Надпись мелким шрифтом под главным меню
+PORTBY:
+	.WORD	SCREEN + <186.*64.> + 2.
+	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
+	.BYTE	377
+	.WORD	SCREEN + <186.*64.> + 44.
+.INCLUDE /VERSIO.MAC/
+	.BYTE	376
+	.EVEN
 
 ; Info Screen Text
 LB7B5:	.WORD	SCREEN+<32.*64.>+16.
