@@ -31,6 +31,9 @@ START::
 	MTPS	#340			; disable all interruptions
 	MOV	SP, OSTACK		; Сохраняем начальное значение SP
 	MOV	#1000, SP
+	MOV	#000004, R0
+	MOV	#STOP, (R0)+		; Вектор обработки клавиши СТОП
+	MOV	#340, (R0)
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 
 ; Подготовительные операции перед стартом: таблицы, прешифты
@@ -39,7 +42,11 @@ START::
 ; Вывести надпись PRESS ANY KEY
 	MOV	#LB839, R3		; "PRESS ANY KEY"
 	CALL	LB890			; Print text
-1$:	CALL	WTKEY			; Ожидание нажатой клавиши
+	CALL	WTKEY			; Ожидание нажатой клавиши
+
+; Сюда переходим по нажатию клавиши СТОП
+STOP:	MOV	#1000, SP
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 
 ;	CALL	CLRSCR
 
@@ -62,16 +69,6 @@ FINISH:
 	JMP	@#100000		; Возврат в ANDOS
 
 OSTACK:	.WORD	40000			; Начальное значение SP
-
-; Надпись мелким шрифтом под главным меню
-PORTBY:
-	.WORD	SCREEN + <186.*64.> + 2.
-	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
-	.BYTE	377
-	.WORD	SCREEN + <186.*64.> + 44.
-.INCLUDE /VERSIO.MAC/
-	.BYTE	376
-	.EVEN
 
 ;------------------------------------------------------------------------------
 
@@ -576,13 +573,13 @@ L90FA:	CLRB	(R3)		; 90FA	LD (HL),$00	< clear score digit
 	CALL	LA42B		; 9101	CALL $A42B	print score
 	CALL	L8F8A		; 9104	CALL $8F8A	?? work on table $7B00
 L9107:	CALL	LA291		; 9107	CALL $A291	Prepare tables and show the starting animation
-L910A:				; 910A	LD A,$FD
+L910A:	BR	L911F ;STUB	; 910A	LD A,$FD
 				; 910C	IN A,($FE)
-	CMP	LKEY, #003 ;^C	; 910E	AND $11		Check for abort key
-	BNE	L911F		; 9110	JP NZ,$911F
-	MOV	#L9232, R3	; 9113	LD HL,$9232	"MISSION ABORTED"
+	;CMP	LKEY, #003 ;^C	; 910E	AND $11		Check for abort key
+	;BNE	L911F		; 9110	JP NZ,$911F
+	;MOV	#L9232, R3	; 9113	LD HL,$9232	"MISSION ABORTED"
 				; 9116	LD A,$01
-	MOVB	#1, L8F23	; 9118	LD ($8F23),A
+	;MOVB	#1, L8F23	; 9118	LD ($8F23),A
 L911B:	CALL	LB890		; 911B	CALL $B890	Print text
 	MOV	#14., R1		; pause counter
 1$:	PUSH	R1
@@ -590,8 +587,8 @@ L911B:	CALL	LB890		; 911B	CALL $B890	Print text
 	CALL	PAUSE			; wait a bit
 	POP	R1
 	SOB	R1, 1$
-;	MOV	#LB839, R3		; "PRESS ANY KEY"
-;	CALL	LB890
+	MOV	#LB839, R3		; "PRESS ANY KEY"
+	CALL	LB890
 	RETURN			; 911E	RET		Exit GAME MODE
 L911F:				; 911F	LD A,$BF
 				; 9121	IN A,($FE)
@@ -739,9 +736,9 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	CALL	L95EF		; 922C	CALL $95EF	Show the screen
 	JMP	L910A		; 922F	JP $910A	continue main loop
 
-L9232:	.WORD	<SCREEN+<64.*64.>+14.>
-	.BYTE	131,212,135,131,143,143,131,137,136,115,121,122,137,142,144,125,124,212,376,000  ; "MISSION ABORTED"
-	.EVEN
+;L9232:	.WORD	<SCREEN+<64.*64.>+14.>
+;	.BYTE	131,212,135,131,143,143,131,137,136,115,121,122,137,142,144,125,124,212,376,000  ; "MISSION ABORTED"
+;	.EVEN
 L9247:	.WORD	<SCREEN+<56.*64.>+20.>
 	.BYTE	130,212,115,144,137,137,115,134,121,144,125,115,212,377  ; "TOO LATE"
 	.WORD	<SCREEN+<64.*64.>+12.>
@@ -4374,20 +4371,20 @@ LB62C:	.WORD	SCREEN+<40.*64.>+16.
 	.WORD	SCREEN+<152.*64.>+6.
 	.ASCII	/DESTROY@THE@ALIEN@STRONGHOLD@/
 	.BYTE	377
-	.WORD	SCREEN+<120.*64.>+42.
+	.WORD	SCREEN+<112.*64.>+40.
 	.ASCII	/CURSOR@KEYS@@/
 	.BYTE	377
-	.WORD	SCREEN+<128.*64.>+42.
+	.WORD	SCREEN+<120.*64.>+40.
 	.ASCII	/FOR@MOVEMENT@/
 	.BYTE	377
-	.WORD	SCREEN+<136.*64.>+54.
+	.WORD	SCREEN+<128.*64.>+42.
 	.ASCII	/@FIRE@@/
 	.BYTE	377
-	.WORD	SCREEN+<144.*64.>+46.
+	.WORD	SCREEN+<144.*64.>+44.
 	.ASCII	/@PAUSE@/
 	.BYTE	377
-	.WORD	SCREEN+<152.*64.>+46.
-	.ASCII	/@ABORT@GAME@/
+	.WORD	SCREEN+<152.*64.>+48.
+	.ASCII	/@EXIT@TO@MENU/
 	.BYTE	376
 	.EVEN
 
@@ -4606,6 +4603,16 @@ LFF29:	.BYTE	0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0
 
 ;------------------------------------------------------------------------------
 
+; Надпись мелким шрифтом под главным меню
+PORTBY:
+	.WORD	SCREEN + <186.*64.> + 2.
+	.ASCII	/PORT@TO@BK0011M@BY@NZEEMIN@/
+	.BYTE	377
+	.WORD	SCREEN + <186.*64.> + 44.
+.INCLUDE /VERSIO.MAC/
+	.BYTE	376
+	.EVEN
+
 ; Info Screen Text
 LB7B5:	.WORD	SCREEN+<32.*64.>+16.
 	.BYTE	130,212,121,145,144,137,116,146,137,142,144,137,136,143,212,377	; AUTO-VORTONS
@@ -4615,14 +4622,14 @@ LB7B5:	.WORD	SCREEN+<32.*64.>+16.
 	.BYTE	131,212,135,121,131,136,115,146,137,142,144,137,136,212,377,000	; MAIN VORTON
 	.WORD	SCREEN+<128.*64.>+6.
 	.BYTE	132,212,151,137,145,142,115,135,131,143,143,131,137,136,212,377	; YOUR MISSION
-	.WORD	SCREEN+<104.*64.>+42.
+	.WORD	SCREEN+<104.*64.>+40.
 	.BYTE	131,212,123,137,136,144,142,137,134,143,212,377			; CONTROLS
-	.WORD	SCREEN+<136.*64.>+52.
+	.WORD	SCREEN+<128.*64.>+40.
 	.BYTE	132,112,377,000							; ' '
-	.WORD	SCREEN+<144.*64.>+42.
+	.WORD	SCREEN+<144.*64.>+40.
 	.BYTE	132,114,140,377							; ^P
-	.WORD	SCREEN+<152.*64.>+42.
-	.BYTE	132,114,123,377							; ^C
+	.WORD	SCREEN+<152.*64.>+40.
+	.BYTE	132,143,144,137,140,377						; STOP
 	.WORD	SCREEN+<0.*64.>+12.
 	.BYTE	130,312,130,131,127,130,147,121,151,115,115,125,136,123,137,145 ; HIGHWAY
 	.BYTE	136,144,125,142,312,377						; ENCOUNTER
