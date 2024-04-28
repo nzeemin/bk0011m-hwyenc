@@ -593,17 +593,18 @@ L911B:	CALL	LB890		; 911B	CALL $B890	Print text
 	RETURN			; 911E	RET		Exit GAME MODE
 L911F:				; 911F	LD A,$BF
 				; 9121	IN A,($FE)
-	CMP	LKEY, #020 ;^P	; 9123	BIT 4,A		Check for pause key
+	CMP	LKEY, #120 ; P	; 9123	BIT 4,A		Check for pause key
 	BNE	L9163		; 9125	JR NZ,$9163
 	MOV	#L92A0, R3	; 9127	LD HL,$92A0	"PAUSE MODE"
 	CALL	LB890		; 912A	CALL $B890	Print text
 	CALL	WTKEY			; Wait for any key pressed
 ; Clear the "PAUSE MODE" sign
+	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#<SCREEN+<148.*64.>>, R2	; Addr on the screen
 	MOV	#<8.*32.>, R1		; 8 lines on the screen
 1$:	CLR	(R2)+			; clear
-	INC	R2
 	SOB	R1, 1$
+	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 
 L9163:	CALL	L9822		; 9163	CALL $9822	Remove objects from the shadow screen
 	CALL	LA03B		; 9166	CALL $A03B	Objects logic
@@ -4379,7 +4380,7 @@ LB62C:	.WORD	SCREEN+<40.*64.>+16.
 	.WORD	SCREEN+<128.*64.>+42.
 	.ASCII	/@FIRE@@/
 	.BYTE	377
-	.WORD	SCREEN+<144.*64.>+44.
+	.WORD	SCREEN+<144.*64.>+42.
 	.ASCII	/@PAUSE@/
 	.BYTE	377
 	.WORD	SCREEN+<152.*64.>+48.
@@ -4626,7 +4627,7 @@ LB7B5:	.WORD	SCREEN+<32.*64.>+16.
 	.WORD	SCREEN+<128.*64.>+40.
 	.BYTE	132,112,377,000							; ' '
 	.WORD	SCREEN+<144.*64.>+40.
-	.BYTE	132,114,140,377							; ^P
+	.BYTE	132,140,377,000							; P
 	.WORD	SCREEN+<152.*64.>+40.
 	.BYTE	132,143,144,137,140,377						; STOP
 	.WORD	SCREEN+<0.*64.>+12.
