@@ -1392,17 +1392,15 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#<LD900+5>, R3	; 97A6	LD HL,$D905
 	MOV	#SCREEN, R2	; 97A9	LD DE,$4000	Screen address
-	MOV	#144., R0	; Number of lines to copy
-10$:	PUSH	R0
-	MOV	#8., R1		; 32. bytes in line
-20$:	.REPT	4.		; loop unroll x4
+	MOV	#144., R4	; Number of lines to copy
+10$:	MOV	#4., R1		; 32. bytes in line
+20$:	.REPT	8.		; loop unroll x8
 	MOVB	(R3)+, R0
 	ASL	R0
 	MOV	PXCONH(R0), (R2)+	; Convert pixels / Write into the screen
 	.ENDR
 	SOB	R1, 20$
-	POP	R0
-	SOB	R0, 10$
+	SOB	R4, 10$
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 ; Копирование подготовленного теневого экрана на второй теневой экран
 	MOV	#<LD900+1005>, R3	; 97DF	LD HL,$DB05
@@ -1480,9 +1478,9 @@ L982A:	INC	R3		; 982A	INC L		NOTE: first byte replaced with word
 	MOV	R2, R3		; 983A	ADD HL,DE
 				; 983B	LD E,L
 				; 983C	LD D,H
-	CMP	R2, #LFF29 ;DEBUG вышли за границу экрана?
-	BLO	1$	   ;DEBUG нет => переходим
-	HALT
+;	CMP	R2, #LFF29 ;DEBUG вышли за границу экрана?
+;	BLO	1$	   ;DEBUG нет => переходим
+;	HALT
 1$:				; 983D	LD BC,$F005	-4091.
 	SUB	#4091., R3	; 9840	ADD HL,BC	minus distance between the screens
 	MOV	#24., R0	; 9841	LD A,$18	24. = sprite height
@@ -1627,9 +1625,9 @@ L98E2:	INC	R3		; 98E2	INC L		NOTE: первый байт таблицы заме
 	ADD	R1, R3		; 9910	ADD HL,BC
 	MOV	R3, R1		; 9911	LD C,L
 				; 9912	LD B,H		BC = address where to draw the sprite
-	CMP	R1, #LFF29 ;DEBUG вышли за границу экрана?
-	BLO	1$	   ;DEBUG нет => переходим
-	HALT
+;	CMP	R1, #LFF29 ;DEBUG вышли за границу экрана?
+;	BLO	1$	   ;DEBUG нет => переходим
+;	HALT
 1$:	PUSH	R3		; 9913	EX (SP),HL	restore HL and set value on stack
 	MOV	R5, R3
 	CALL	(R3)		; 9914	JP (HL)		Draw the sprite
@@ -3537,8 +3535,8 @@ LA54F:	MOVB	(R4), R0	; A54F	LD A,(IX+$00)
 				; A579	LD B,$00
 				; A57B	LD HL,$A592
 	MOV	(R1), R3	; A57E	ADD HL,BC
-	MOVB	4(R4), R1	; A57F	LD C,(IX+$03)
-	BIC	#177400, R1
+	CLR	R1
+	BISB	4(R4), R1	; A57F	LD C,(IX+$03)
 	SWAB	R1
 	BISB	3(R4), R1	; A582	LD B,(IX+$04)	BC = object offset
 				; A585	EX DE,HL
@@ -3546,9 +3544,9 @@ LA54F:	MOVB	(R4), R0	; A54F	LD A,(IX+$00)
 	ADD	R1, R2		; A589	ADD HL,BC
 	MOV	R2, R1		; A58A	LD C,L
 				; A58B	LD B,H		BC = address where to draw the sprite
-	CMP	R1, #LFF29 ;DEBUG вышли за границу экрана?
-	BLO	1$	   ;DEBUG нет => переходим
-	HALT
+;	CMP	R1, #LFF29 ;DEBUG вышли за границу экрана?
+;	BLO	1$	   ;DEBUG нет => переходим
+;	HALT
 1$:	PUSH	R2		; A58C	PUSH HL
 				; A58D	EX DE,HL
 	MOV	#LBBC0, R2	; A58E	LD DE,$BBC0	Sprite #5 flat blocker
@@ -3560,7 +3558,7 @@ LA5AD:	POP	R3		; A5AD	POP HL
 				; A5AE	LD A,H
 	CMP	R3, #LE900	; A5AF	CP $E9
 	BLO	LA5DA		; A5B1	JP C,$A5DA
-		; A5B4	EX DE,HL
+				; A5B4	EX DE,HL
 	SUB	#LE900, R3	; A5B5	SUB $E9
 	MOV	R3, R0
 				; A5B7	ADD A,A
@@ -4317,9 +4315,9 @@ LB57C:	POP	R2		; B57C	POP DE		restore screen address
 LB590:	MOVB	(R3)+, R0
 	BIC	#177760, R0
 	ASL	R0
-	MOV	PXCONH(R0), R0	; Convert pixels / write into screen
+	MOV	PXCONH(R0), R0		; Convert pixels
 	ASL	R0
-	MOVB	R0, (R2)
+	MOVB	R0, (R2)		; Write into screen
 	ADD	#64., R2		; next line
 	SOB	R1, LB590	; B59D	DJNZ $B590
 	CLRB	(R2)		; B59F	LD (HL),$00
@@ -4422,7 +4420,7 @@ LB8C9:	BIC	#177700, R0	; B8C9	AND $3F
 	MOV	#5, R1		; B8E0	LD B,$05	counter = 5
 LB8E2:	MOVB	(R3)+, R0	; B8E2	LD A,(HL)
 	ASL	R0
-	MOV	PXCONH(R0), R0		; Конвертируем пикселы по таблице
+	MOV	PXCONH(R0), R0		; Convert pixels
 	ASL	R0
 	MOV	R0, (R2)	; B8E3	LD (DE),A	write to the screen
 	ADD	#64., R2	; B8E4	INC D		next line
