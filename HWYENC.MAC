@@ -22,6 +22,7 @@ MMODE5 = ^B0011100100000000	; 3:5  -  для рисования на экран�
 MMODE6 = ^B0011111100000000	; 3:6  -  под прешифты
 
 PXCONV = 001000			; Адрес таблицы конвертации пикселей
+PXCONH = PXCONV + <128.*2.>	; Середина таблицы конвертации
 
 ;------------------------------------------------------------------------------
 
@@ -710,16 +711,12 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	ADD	R1, R2
 	MOV	#4., R1			; 4 lines
 	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
-1$:	CLR	R0
-	BISB	(R3)+, R0		; get byte
+1$:	MOVB	(R3)+, R0		; get byte
 	ASL	R0
-	MOV	PXCONV(R0), R0
-	MOV	R0, (R2)+
-	CLR	R0
-	BISB	(R3), R0		; get byte
+	MOV	PXCONH(R0), (R2)+
+	MOVB	(R3), R0		; get byte
 	ASL	R0
-	MOV	PXCONV(R0), R0
-	MOV	R0, (R2)
+	MOV	PXCONH(R0), (R2)
 	ADD	#<64.-2>, R2
 	ADD	#<32.-1>, R3
 	SOB	R1, 1$
@@ -889,10 +886,9 @@ L9396:	MOVB	(R3)+, R2	; 9396	LD E,(HL)	взяли номер спрайта
 	MOV	(R4)+, R2	; 93A2	LD E,(IX+$00)	address on the screen
 				; 93A5	LD D,$50
 	MOV	#8., R1		; 93A7	LD B,$08	counter = 8.
-L93A9:	CLR	R0
-	BISB	(R3)+, R0	; 93A9	LD A,(HL)	получаем 8 пикселов спрайта
+L93A9:	MOVB	(R3)+, R0	; 93A9	LD A,(HL)	получаем 8 пикселов спрайта
 	ASL	R0		; 93AA	LD (DE),A	write into screen
-	MOV	PXCONV(R0), R0		; Convert pixels
+	MOV	PXCONH(R0), R0		; Convert pixels
 	ASL	R0
 	MOV	R0, (R2)	; 93AB	INC HL		write into screen
 	ADD	#64., R2	; 93AC	INC D		next line
@@ -1400,10 +1396,9 @@ L978D:	BISB	#1, (R3)	; 978D	LD A,(HL)
 10$:	PUSH	R0
 	MOV	#8., R1		; 32. bytes in line
 20$:	.REPT	4.		; loop unroll x4
-	CLR	R0
-	BISB	(R3)+, R0
+	MOVB	(R3)+, R0
 	ASL	R0
-	MOV	PXCONV(R0), (R2)+	; Convert pixels / Write into the screen
+	MOV	PXCONH(R0), (R2)+	; Convert pixels / Write into the screen
 	.ENDR
 	SOB	R1, 20$
 	POP	R0
@@ -1990,20 +1985,19 @@ L9AB0:	MOVB	(R1), R0	; 9AB0	LD A,(BC)	<
 	MOV	#-64., R4
 	MOV	#-32., R5			;	   для перехода к предыдущей строке теневого экрана
 L9ABB:	.REPT	7			; loop unroll x8; R1 не портится
-	CLR	R0		; 9ABB	LD A,(HL)	|  <
-	BISB	(R3), R0			;	|  |  берём байт из теневого экрана
+				; 9ABB	LD A,(HL)	|  <
+	MOVB	(R3), R0			;	|  |  берём байт из теневого экрана
 	ASL	R0
-	MOV	PXCONV(R0), (R2)		;	|  |  конвертируем и выводим на экран
+	MOV	PXCONH(R0), (R2)		;	|  |  конвертируем и выводим на экран
 				; 9ABC	LD (DE),A	|  |
 	ADD	R4, R2		; 9ABD	DEC D		|  |  к предыдущей строке экрана
 				; 9ABE	LD A,$E0	|  |
 	ADD	R5, R3		; 9AC0	ADD A,L		|  |  к предыдущей строке теневого экрана
 				; 9AC1	LD L,A		|  |
 	.ENDR
-	CLR	R0			; last iteration, w/o ADDs
-	BISB	(R3), R0
+	MOVB	(R3), R0		; last iteration, w/o ADDs
 	ASL	R0
-	MOV	PXCONV(R0), (R2)
+	MOV	PXCONH(R0), (R2)
 				; 9AC2	DJNZ $9ABB	|  продолжение цикла по строкам
 				; 9AC4	LD A,D	        |
 	ADD	#<1000-64.>, R2	; 9AC5	ADD A,$08	|  на 8. экранных строк ниже
@@ -2227,17 +2221,17 @@ L9BD9:	SXT	R0
 	MOV	#<L6020+420>, R3
 	MOV	#8., R1
 	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
-1$:	CLR	R5			; #1
-	BISB	(R3)+, R5		; get byte
+1$:					; #1
+	MOVB	(R3)+, R5		; get byte
 	ASL	R5
-	MOV	PXCONV(R5), R5
+	MOV	PXCONH(R5), R5
 	ASL	R5
 	BIC	R0, R5
 	MOV	R5, (R2)+		; write to screen / next column
-	CLR	R5			; #2
-	BISB	(R3), R5		; get byte
+					; #2
+	MOVB	(R3), R5		; get byte
 	ASL	R5
-	MOV	PXCONV(R5), R5
+	MOV	PXCONH(R5), R5
 	ASL	R5
 	BIC	R0, R5
 	MOV	R5, (R2)		; write to screen
@@ -2883,11 +2877,10 @@ LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
 	ADD	#<SCRIND+<9.*64.>+38.>, R2	; Address on the screen
 	MOV	#7., R1
 	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
-2$:	CLR	R0
-	BISB	(R3), R0		; get byte
+2$:
+	MOVB	(R3), R0		; get byte
 	ASL	R0
-	MOV	PXCONV(R0), R0
-	MOV	R0, (R2)
+	MOV	PXCONH(R0), (R2)
 	ADD	#64., R2		; next line
 	ADD	#32., R3
 	SOB	R1, 2$
@@ -3366,10 +3359,10 @@ LA3D3:
 LA3E9:	MOV	#32., R1	; A3E9	LD BC,$0020
 				; A3EC	EX AF,AF'
 				; A3ED	PUSH DE
-1$:	CLR	R5		; A3EE	LDIR
-	BISB	(R3)+, R5
+1$:				; A3EE	LDIR
+	MOVB	(R3)+, R5
 	ASL	R5
-	MOV	PXCONV(R5), (R2)+		; Конвертируем пикселы по таблице
+	MOV	PXCONH(R5), (R2)+		; Конвертируем пикселы по таблице
 	SOB	R1, 1$
 				; A3F0	POP DE
 	DEC	R0		; A3F1	DEC A
@@ -3429,10 +3422,10 @@ LA432:	MOVB	(R1), R0	; A431	LD A,(BC)
 	ADD	R0, R3		; A440	ADD HL,BC
 	MOV	R2, R5		; A441	LD C,D
 	MOV	#5, R1		; A442	LD B,$05	5 lines
-LA444:	CLR	R0		; A444	LD A,(HL)
-	BISB	(R3)+, R0
+LA444:				; A444	LD A,(HL)
+	MOVB	(R3)+, R0
 	ASL	R0
-	MOV	PXCONV(R0), (R2)	; Конвертируем пикселы по таблице и записываем в экран
+	MOV	PXCONH(R0), (R2)	; Конвертируем пикселы по таблице и записываем в экран
 				; A445	LD (DE),A
 	ADD	#64., R2	; A446	INC D		next line
 				; A447	INC HL
@@ -4095,10 +4088,9 @@ LB3A9:
 	MOV	#<192.-18.-19.>, R4	; Number of lines to copy
 1$:	MOV	#4., R1			; Counter to loop thru the line
 2$:	.REPT	8.			; Loop unroll x8
-	CLR	R0
-	BISB	(R3)+, R0		; get byte
+	MOVB	(R3)+, R0		; get byte
 	ASL	R0
-	MOV	PXCONV(R0), (R2)+	; Pixel conversion / Write into the screen
+	MOV	PXCONH(R0), (R2)+	; Pixel conversion / Write into the screen
 	.ENDR
 	SOB	R1, 2$
 	SOB	R4, 1$			; continue loop by lines
@@ -4325,7 +4317,7 @@ LB57C:	POP	R2		; B57C	POP DE		restore screen address
 LB590:	MOVB	(R3)+, R0
 	BIC	#177760, R0
 	ASL	R0
-	MOV	PXCONV(R0), R0	; Convert pixels / write into screen
+	MOV	PXCONH(R0), R0	; Convert pixels / write into screen
 	ASL	R0
 	MOVB	R0, (R2)
 	ADD	#64., R2		; next line
@@ -4428,10 +4420,9 @@ LB8C9:	BIC	#177700, R0	; B8C9	AND $3F
 	MOV	#025252, (R2)	; B8DE	LD (DE),A	write to the screen
 	ADD	#64., R2	; B8DF	INC D		next line
 	MOV	#5, R1		; B8E0	LD B,$05	counter = 5
-LB8E2:	CLR	R0
-	BISB	(R3)+, R0	; B8E2	LD A,(HL)
+LB8E2:	MOVB	(R3)+, R0	; B8E2	LD A,(HL)
 	ASL	R0
-	MOV	PXCONV(R0), R0		; Конвертируем пикселы по таблице
+	MOV	PXCONH(R0), R0		; Конвертируем пикселы по таблице
 	ASL	R0
 	MOV	R0, (R2)	; B8E3	LD (DE),A	write to the screen
 	ADD	#64., R2	; B8E4	INC D		next line
@@ -4463,8 +4454,8 @@ LFD00 = LEB00 + 4608.			; Drawing markers area
 ; Выполнить все подготовительные операции перед запуском основной программы
 PREPAR:
 ; Создать таблицу PXCONV по адерсам 001000-002000, для конвертации пикселей
-	MOV	#002000, R2
-	MOV	#255., R3		; R3 бежит от 255. до 0
+	MOV	#PXCONV, R2
+	MOV	#-128., R3		; R3 бежит от -128. до +127.
 1$:	CLR	R5			; в R5 будет готовое слово
 	MOV	#8., R4			; в R4 счётчик по разрядам
 	MOV	R3, R1
@@ -4472,9 +4463,10 @@ PREPAR:
 	ROR	R5			; забираем из C
 	ROR	R5
 	SOB	R4, 2$
-	MOV	R5, -(R2)		; записываем результат
-	SOB	R3, 1$
-	CLR	-(R2)			; 0-й элемент
+	MOV	R5, (R2)+		; записываем результат
+	INC	R3
+	CMP	R3, #128.
+	BLT	1$
 ;
 ; Подготовить все прешифты для 56. спрайтов с маской
 ;
