@@ -568,8 +568,8 @@ L90F2:	CLR	LKEY
 	CALL	LA450		; 90F2	CALL $A450	check score
 	MOV	#<LA480+1>, R3	; 90F5	LD HL,$A481	Score
 	MOV	#6, R1		; 90F8	LD B,$06	counter = 6
-L90FA:	CLRB	(R3)		; 90FA	LD (HL),$00	< clear score digit
-	INC	R3		; 90FC	INC HL		|
+L90FA:	CLRB	(R3)+		; 90FA	LD (HL),$00	< clear score digit
+				; 90FC	INC HL		|
 	SOB	R1, L90FA	; 90FD	DJNZ $90FA	repeat
 	MOVB	#1, (R3)	; 90FF	LD (HL),$01
 	CALL	LA42B		; 9101	CALL $A42B	print score
@@ -617,8 +617,8 @@ L9163:	CALL	L9822		; 9163	CALL $9822	Remove objects from the shadow screen
 	BLO	L918C		; 9177	JP C,$918C	less => jump
 ; Zone >= 30.
 	MOV	#<L8A50+1>, R3	; 917A	LD HL,$8A51	Lasertron object + $01
-	MOVB	(R3)+, R2	; 917D	LD E,(HL)
-	BIC	#177400, R2	; 917E	INC L
+	CLR	R2		; 917D	LD E,(HL)
+	BISB	(R3)+, R2	; 917E	INC L
 	SWAB	R2
 	BISB	(R3), R2	; 917F	LD D,(HL)
 	SWAB	R2
@@ -675,8 +675,8 @@ L91C3:	MOV	R3, L8F1A	; 91C3	LD ($8F1A),HL	save the counter
 L91C6:		; 91C6	LD A,R
 		; 91C8	SLL A
 	MOV	L8F01, R3	; 91CA	LD HL,($8F01)	get object table address
-	MOVB	L8F17, R1	; 91CD	LD A,($8F17)
-	BIC	#177400, R1	; 91D0	LD C,A
+	CLR	R1		; 91CD	LD A,($8F17)
+	BISB	L8F17, R1	; 91D0	LD C,A
 		; 91D1	JR NC,$91C6	delay
 	MOVB	(R3), R0	; 91D3	LD A,(HL)
 	CMPB	R0, #376	; 91D4	CP $FE		dead Vorton?
@@ -701,8 +701,8 @@ L91EB:	MOVB	(R3), R0	; 91EB	LD A,(HL)
 	BITB	#128., (R3)	; 91F8	BIT 7,(HL)	explosion?
 	BNE	L91DC		; 91FA	JP NZ,$91DC	yes => jump
 ; HL points to (+$08) of Auto-Vorton to convert into Main Vorton
-	MOV	R1, R0		; 91FD	LD A,C
-	MOVB	R0, L8F17	; 91FE	LD ($8F17),A
+				; 91FD	LD A,C
+	MOVB	R1, L8F17	; 91FE	LD ($8F17),A
 	PUSH	R3		; 9201	PUSH HL
 ; Put white hat on the new Main Vorton indicator
 	MOV	#<SCRIND+<13*64.>+12.>, R2
@@ -846,29 +846,37 @@ L9369:	INC	R1		; 9369	INC B		в B набираем старшую десятич
 	CMP	R0, R5		; 936B	CP C		< 10. ?
 	BHIS	L9369		; 936C	JR NC,$9369	no => jump
 	MOV	R0, R5		; 936E	LD C,A		lower digit
-L936F:	MOV	R1, R0		; 936F	LD A,B		working with upper digit
-	ADD	R0, R0		; 9370	ADD A,A		= X*2
-	ADD	R1, R0		; 9371	ADD A,B		= X*2+X
-	ADD	R0, R0		; 9372	ADD A,A		= (X*2+X)*2 = X*6
-	MOV	#L94F9, R3	; 9373	LD HL,$94F9	адрес списка с индексами спрайтов для больших цифр
-	MOV	R0, R2		; 9376	LD D,$00
+L936F:				; 936F	LD A,B		working with upper digit
+				; 9370	ADD A,A		= X*2
+				; 9371	ADD A,B		= X*2+X
+				; 9372	ADD A,A		= (X*2+X)*2 = X*6
+				; 9373	LD HL,$94F9	адрес списка с индексами спрайтов для больших цифр
+				; 9376	LD D,$00
 				; 9378	LD E,A
-	MOV	R5, R0		; 9379	LD A,C		get lower digit
-	ADD	R0, R0		; 937A	ADD A,A		= X*2
-	ADD	R5, R0		; 937B	ADD A,C		= X*2+X
-	ADD	R0, R0		; 937C	ADD A,A		= (X*2+X)*2 = X*6
-	PUSH	R0		; 937D	EX AF,AF'
-	ADD	R2, R3		; 937E	ADD HL,DE
+				; 9379	LD A,C		get lower digit
+				; 937A	ADD A,A		= X*2
+				; 937B	ADD A,C		= X*2+X
+				; 937C	ADD A,A		= (X*2+X)*2 = X*6
+	PUSH	R5		; 937D	EX AF,AF'
+				; 937E	ADD HL,DE
 	MOV	#L95E3, R4	; 937F	LD IX,$95E3	адрес массива адресов на экране для цифр ZONE
-	CALL	L9394		; 9383	CALL $9394	show first ZONE digit
-	MOV	#L94F9, R3	; 9386	LD HL,$94F9	адрес списка с индексами спрайтов для больших цифр
+	CALL	L9393		; 9383	CALL $9394	show first ZONE digit
+				; 9386	LD HL,$94F9	адрес списка с индексами спрайтов для больших цифр
 				; 9389	LD D,$00
-	POP	R0		; 938B	EX AF,AF'
+	POP	R1		; 938B	EX AF,AF'
 				; 938C	LD E,A
-	ADD	R0, R3		; 938D	ADD HL,DE
-	CALL	L9394		; 938E	CALL $9394	show second ZONE digit
+				; 938D	ADD HL,DE
+	CALL	L9393		; 938E	CALL $9394	show second ZONE digit
 	BR	L93B7		; 9391	JP $93B7
 
+; Procedure: Draw digit with size of 16x24 pixels into the ZONE indicator
+; R1 = digit 0..9 or 10. for space
+; R4 = адрес массива из 6-ти адресов на экране
+L9393:	MOV	R1, R3
+	ADD	R3, R3
+	ADD	R1, R3
+	ADD	R3, R3			; R3 = R1*6
+	ADD	#L94F9, R3		; адрес массива адресов на экране для цифр ZONE
 ; Procedure: Draw digit with size of 16x24 pixels into the ZONE indicator
 ; R3 = адрес массива из 6-ти номеров спрайтов 8x8
 ; R4 = адрес массива из 6-ти адресов на экране
@@ -907,12 +915,12 @@ L93B7:	MOV	#L7B00, R4	; 93B7	LD IX,$7B00	global objects table
 	MOV	#L8A90, R2	; 93BB	LD DE,$8A90	current zone objects
 	MOV	#44., R5	; 93BE	LD A,$2C	max number of objects to select
 				; 93C0	EX AF,AF'
-L93C1:	MOVB	(R4), R0	; 93C1	LD A,(IX+$00)	<
-	BIC	#177400, R0	;			|
+L93C1:	CLR	R0		; 93C1	LD A,(IX+$00)	<
+	BISB	(R4), R0	;			|
 	CMPB	R0, #376	; 93C4	CP $FE		|  marked to skip?
 	BHIS	L93F2		; 93C6	JR NC,$93F2	|  yes => skip
-	MOVB	2(R4), R3	; 93C8	LD L,(IX+$01)
-	BIC	#177400, R3     ; 93CB	LD H,(IX+$02)	get object position
+	CLR	R3		; 93C8	LD L,(IX+$01)
+	BISB	2(R4), R3	     ; 93CB	LD H,(IX+$02)	get object position
 	SWAB	R3
 	BISB	1(R4), R3
 	MOV	L8F05, R1	; 93CE	LD BC,($8F05)	current zone low pos
@@ -1210,8 +1218,8 @@ L965D:	MOVB	#12., L9658	; 965D	LD A,$0C
 	MOV	#<LD900+5>, R4	; 9674	LD IX,$D905
 	MOV	#LFD00, R2	; 9678	LD DE,$FD00	адрес области маркеров отрисовки
 	MOV	#12., R1	; 967B	LD C,$0C
-L967D:	MOVB	(R3), R0	; 967D	LD A,(HL)	Начало цикла рисования верхних столбцов фона
-	BIC	#177400, R0
+L967D:	CLR	R0		; 967D	LD A,(HL)	Начало цикла рисования верхних столбцов фона
+	BISB	(R3), R0
 	MOV	R3, L9659	; 967E	LD ($9659),HL
 	PUSH	R4		; 9681	PUSH IX
 	PUSH	R2		; 9683	PUSH DE
@@ -1315,8 +1323,8 @@ L9711:	CLR	R2
 	ADD	#32., R3	; 971D	ADD HL,DE
 	PUSH	R3		; 971E	PUSH HL
 	MOV	L965B, R3	; 971F	LD HL,($965B)
-	MOVB	(R3), R0	; 9722	LD A,(HL)
-	BIC	#177400, R0
+	CLR	R0		; 9722	LD A,(HL)
+	BISB	(R3), R0
 	MOV	R0, R3		; 9723	LD L,A
 				; 9724	LD H,$00
 	ADD	R3, R3		; 9726	ADD HL,HL
@@ -2123,8 +2131,8 @@ L9B6D:	CLRB	L8F15		; 9B6D	XOR A
 ; Routine: Lasertron?
 L9B72:
 	MOV	#<L8A50+8.>, R3	; 9B72	LD HL,$8A58	Lasertron object + 8.
-	MOVB	(R3), R0	; 9B75	LD A,(HL)	get movement flags
-	BIC	#177400, R0	; 9B76	AND A		stopped?
+	CLR	R0		; 9B75	LD A,(HL)	get movement flags
+	BISB	(R3), R0	; 9B76	AND A		stopped?
 	BEQ	L9BD9		; 9B77	JP Z,$9BD9	yes => jump
 	MOV	#<L8A50+2>, R3	; 9B7A	LD HL,$8A52	Lasertron object + 2
 	CLR	R1
@@ -2147,8 +2155,8 @@ L9B8C:	ADD	R2, R3		; 9B8C	ADD HL,DE
 	BHIS	L9B88		; 9B91	JR NC,$9B88
 	MOV	#6, R2		; 9B93	LD DE,$0006
 	ADD	R2, R3		; 9B96	ADD HL,DE
-	MOVB	(R3), R0	; 9B97	LD A,(HL)
-	BIC	#177400, R0	; 9B98	AND A
+	CLR	R0		; 9B97	LD A,(HL)
+	BISB	(R3), R0	; 9B98	AND A
 	BEQ	L9BB3		; 9B99	JP Z,$9BB3
 	SUB	#4, R3		; 9B9C	DEC L
 				; 9B9D	DEC L
@@ -2301,8 +2309,8 @@ L9CA8:	MOV	L8F07, R2	; 9CA8	LD DE,($8F07)	current zone high pos
 L9CB9:	CALL	L92CE		; 9CB9	CALL $92CE	Prepare objects for the current Zone
 	CALL	L95EF		; 9CBC	CALL $95EF	Show the screen
 	MOV	L8F01, R4	; 9CBF	LD IX,($8F01)	object table address
-L9CC3:	MOVB	10(R4), R0	; 9CC3	LD A,(IX+$08)	get movement flags
-	BIC	#177400, R0	; 9CC6	AND A	        stopped?
+L9CC3:	CLR	R0		; 9CC3	LD A,(IX+$08)	get movement flags
+	BISB	10(R4), R0	; 9CC6	AND A	        stopped?
 	BNE	L9D29		; 9CC7	JP NZ,$9D29	no => jump
 	JMP	L9E1A		; 9CCA	JP $9E1A	next record by IX
 ; Process the IX record
@@ -2631,8 +2639,8 @@ L9ED2:	INC	R3		; 9ED2	INC L
 ; Cont.point: Auto-Vorton vs Auto-Vorton
 ; IX=8A30 DE=8A42  IX=8A20 DE=8A32  IX=8A10 HL=8A22
 L9ED7:	MOV	#L8F15, R3	; 9ED7	LD HL,$8F15
-	MOVB	6(R4), R0	; 9EDA	LD A,(IX+$06)	get movement pattern
-	BIC	#177400, R0	; 9EDD	AND A
+	CLR	R0		; 9EDA	LD A,(IX+$06)	get movement pattern
+	BISB	6(R4), R0	; 9EDD	AND A
 	BEQ	L9EEA		; 9EDE	JR Z,$9EEA	0 => jump
 	CMPB	R0, #1		; 9EE0	CP $01		1 ?
 	BNE	L9EE7		; 9EE2	JP NZ,$9E1A	no => next record by IX
