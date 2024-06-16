@@ -1960,31 +1960,29 @@ L9A74:	.REPT	3			; loop unroll x3
 ; Routine -- Draw the shadow screen on the real screen, using draw markers LFD00
 L9A9B:	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#L9BFC, R3	; 9A9B	LD HL,$9BFC	Address of table with shadow screen line addresses
-	MOV	(R3), R0	; 9A9E	LD A,(HL)	number of blocks in the line
-L9A9F:	INC	R3		; 9A9F	INC HL		NOTE: byte replaced with word
-	INC	R3
-	MOV	(R3)+, R2	; 9AA0	LD E,(HL)
+	MOV	(R3)+, R4	; 9A9E	LD A,(HL)	number of blocks in the line
+L9A9F:				; 9A9F	INC HL		NOTE: byte replaced with word
+				; 9AA0	LD E,(HL)
 				; 9AA1	INC HL
-				; 9AA2	LD D,(HL)	DE = address in the shadow screen
+	MOV	(R3)+, R5	; 9AA2	LD D,(HL)	DE = address in the shadow screen
 				; 9AA3	INC HL
-	PUSH	R2		; 9AA4	PUSH DE
-	MOV	(R3)+, R2	; 9AA5	LD E,(HL)
+				; 9AA4	PUSH DE
+				; 9AA5	LD E,(HL)
 				; 9AA6	INC HL
-				; 9AA7	LD D,(HL)	DE = address on the real screen
+	MOV	(R3)+, R2	; 9AA7	LD D,(HL)	DE = address on the real screen
 				; 9AA8	INC HL
-	MOV	(R3)+, R1	; 9AA9	LD C,(HL)
+				; 9AA9	LD C,(HL)
 				; 9AAA	INC HL
-				; 9AAB	LD B,(HL)	BC points to draw markers, end of the line
+	MOV	(R3)+, R1	; 9AAB	LD B,(HL)	BC points to draw markers, end of the line
 				; 9AAC	INC HL
-	MOV	(SP), R5	; 9AAD	EX (SP),HL	теперь HL = адрес в теневом экране
-	MOV	R3, (SP)
+	PUSH	R3		; 9AAD	EX (SP),HL	теперь HL = адрес в теневом экране
 	MOV	R5, R3
-	MOV	R0, R4		; 9AAE	LD IXh,A	счётчик цикла по строке
-L9AB0:	MOVB	(R1), R0	; 9AB0	LD A,(BC)	<
+				; 9AAE	LD IXh,A	счётчик цикла по строке
+L9AB0:	TSTB	-(R1)		; 9AB0	LD A,(BC)	<
 				; 9AB1	AND A		|  is marker empty?
 	BEQ	L9ACA		; 9AB2	JP Z,$9ACA	|  yes => skip the block
-	DEC	R0		; 9AB5	DEC A		|
-	MOVB	R0, (R1)	; 9AB6	LD (BC),A	|  update marker value
+	DECB	(R1)		; 9AB5	DEC A		|
+				; 9AB6	LD (BC),A	|  update marker value
 				; 9AB7	LD IXl,B	|  save B
 				; 9AB9	LD B,$08	|  Цикл по строкам знакоместа, 8. строк
 	PUSH	R4
@@ -2014,11 +2012,11 @@ L9ACA:						;	|
 	DEC	R3		; 9ACA	DEC L		|
 	DEC	R2		; 9ACB	DEC E		|  к предыдущей позиции в строке
 	DEC	R2
-	DEC	R1		; 9ACC	DEC C		|  к предыдущему элементу массива
-	DEC	R4		; 9ACD	DEC IXh		|
-	BNE	L9AB0		; 9ACF	JP NZ,$9AB0	продолжение цикла по строке
-	POP	R3		; 9AD2	POP HL
-	MOVB	(R3), R0	; 9AD3	LD A,(HL)
+				; 9ACC	DEC C		|  к предыдущему элементу массива
+				; 9ACD	DEC IXh		|
+	SOB	R4, L9AB0	; 9ACF	JP NZ,$9AB0	продолжение цикла по строке
+	POP	R3		; 9AD2	POP HL		восстанавливаем адрес в таблице L9BFC
+	MOV	(R3)+, R4	; 9AD3	LD A,(HL)	NOTE: byte replaced with word
 				; 9AD4	AND A		end of table?
 	BNE	L9A9F		; 9AD5	JP NZ,$9A9F	no => repeat
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
@@ -2249,25 +2247,25 @@ L9BD9:	SXT	R0
 ;   1st word -- number of blocks in the line; NOTE: byte replaced with word
 ;   2nd word -- address on the shadow screen
 ;   3rd word -- address on the real screen
-;   4th word -- address in the draw markers area
-L9BFC:	.WORD	012, <LFD00-1027>, <SCREEN+<143.*100>+18.>, <LFD00+553.>	; 0A FAE9 5729 FF29  line 18
-	.WORD	014, <LFD00-1425>, <SCREEN+<135.*100>+22.>, <LFD00+523.>	; 0C F9EB 570B FF0B
-	.WORD	016, <LFD00-2023>, <SCREEN+<127.*100>+26.>, <LFD00+493.>	; 0E F8ED 4FED FEED
-	.WORD	020, <LFD00-2421>, <SCREEN+<119.*100>+30.>, <LFD00+463.>	; 10 F7EF 4FCF FECF
-	.WORD	022, <LFD00-3017>, <SCREEN+<111.*100>+34.>, <LFD00+433.>	; 12 F6F1 4FB1 FEB1
-	.WORD	024, <LFD00-3415>, <SCREEN+<103.*100>+38.>, <LFD00+403.>	; 14 F5F3 4F93 FE93
-	.WORD	026, <LFD00-4013>, <SCREEN+< 95.*100>+42.>, <LFD00+373.>	; 16 F4F5 4F75 FE75
-	.WORD	030, <LFD00-4411>, <SCREEN+< 87.*100>+46.>, <LFD00+343.>	; 18 F3F7 4F57 FE57
-	.WORD	032, <LFD00-5007>, <SCREEN+< 79.*100>+50.>, <LFD00+313.>	; 1A F2F9 4F39 FE39
-	.WORD	033, <LFD00-5405>, <SCREEN+< 71.*100>+54.>, <LFD00+283.>	; 1B F1FB 4F1B FE1B
-	.WORD	033, <LFD00-6003>, <SCREEN+< 63.*100>+58.>, <LFD00+253.>	; 1B F0FD 47FD FDFD
-	.WORD	033, <LFD00-6401>, <SCREEN+< 55.*100>+62.>, <LFD00+223.>	; 1B EFFF 47DF FDDF
-	.WORD	031, <LFD00-7001>, <SCREEN+< 47.*100>+62.>, <LFD00+191.>	; 19 EEFF 47BF FDBF
-	.WORD	027, <LE900+2377>, <SCREEN+< 39.*100>+62.>, <LFD00+159.>	; 17 EDFF 479F FD9F
-	.WORD	025, <LE900+1777>, <SCREEN+< 31.*100>+62.>, <LFD00+127.>	; 15 ECFF 477F FD7F
-	.WORD	023, <LE900+1377>, <SCREEN+< 23.*100>+62.>, <LFD00+ 95.> 	; 13 EBFF 475F FD5F  line 3
-	.WORD	021, <LE900+ 777>, <SCREEN+< 15.*100>+62.>, <LFD00+ 63.> 	; 11 EAFF 473F FD3F  line 2
-	.WORD	017, <LE900+ 377>, <SCREEN+<  7.*100>+62.>, <LFD00+ 31.>	; 0F E9FF 471F FD1F  line 1
+;   4th word -- address in the draw markers area, points to element after the last one
+L9BFC:	.WORD	012, <LFD00-1027>, <SCREEN+<143.*100>+18.>, <LFD00+554.>	; 0A FAE9 5729 FF29  line 18
+	.WORD	014, <LFD00-1425>, <SCREEN+<135.*100>+22.>, <LFD00+524.>	; 0C F9EB 570B FF0B
+	.WORD	016, <LFD00-2023>, <SCREEN+<127.*100>+26.>, <LFD00+494.>	; 0E F8ED 4FED FEED
+	.WORD	020, <LFD00-2421>, <SCREEN+<119.*100>+30.>, <LFD00+464.>	; 10 F7EF 4FCF FECF
+	.WORD	022, <LFD00-3017>, <SCREEN+<111.*100>+34.>, <LFD00+434.>	; 12 F6F1 4FB1 FEB1
+	.WORD	024, <LFD00-3415>, <SCREEN+<103.*100>+38.>, <LFD00+404.>	; 14 F5F3 4F93 FE93
+	.WORD	026, <LFD00-4013>, <SCREEN+< 95.*100>+42.>, <LFD00+374.>	; 16 F4F5 4F75 FE75
+	.WORD	030, <LFD00-4411>, <SCREEN+< 87.*100>+46.>, <LFD00+344.>	; 18 F3F7 4F57 FE57
+	.WORD	032, <LFD00-5007>, <SCREEN+< 79.*100>+50.>, <LFD00+314.>	; 1A F2F9 4F39 FE39
+	.WORD	033, <LFD00-5405>, <SCREEN+< 71.*100>+54.>, <LFD00+284.>	; 1B F1FB 4F1B FE1B
+	.WORD	033, <LFD00-6003>, <SCREEN+< 63.*100>+58.>, <LFD00+254.>	; 1B F0FD 47FD FDFD
+	.WORD	033, <LFD00-6401>, <SCREEN+< 55.*100>+62.>, <LFD00+224.>	; 1B EFFF 47DF FDDF
+	.WORD	031, <LFD00-7001>, <SCREEN+< 47.*100>+62.>, <LFD00+192.>	; 19 EEFF 47BF FDBF
+	.WORD	027, <LE900+2377>, <SCREEN+< 39.*100>+62.>, <LFD00+160.>	; 17 EDFF 479F FD9F
+	.WORD	025, <LE900+1777>, <SCREEN+< 31.*100>+62.>, <LFD00+128.>	; 15 ECFF 477F FD7F
+	.WORD	023, <LE900+1377>, <SCREEN+< 23.*100>+62.>, <LFD00+ 96.> 	; 13 EBFF 475F FD5F  line 3
+	.WORD	021, <LE900+ 777>, <SCREEN+< 15.*100>+62.>, <LFD00+ 64.> 	; 11 EAFF 473F FD3F  line 2
+	.WORD	017, <LE900+ 377>, <SCREEN+<  7.*100>+62.>, <LFD00+ 32.>	; 0F E9FF 471F FD1F  line 1
 	.WORD	000  ; end-of-table marker
 
 ; Routine: Process object movement
