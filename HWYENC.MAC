@@ -2021,13 +2021,13 @@ L9ACA:						;	|
 ;
 	MOVB	L8F0B, R0	; 9AD8	LD A,($8F0B)	адрес в таблице 8D52
 	CMP	R0, #L8D6A	; 9ADB	CP $6A		< 8D6A ? объектов меньше 8
-	BHIS	L9B72		; 9ADD	JP NC,$9B72	нет => переходим
+	BLE	L9B72		; 9ADD	JP NC,$9B72	нет => переходим
 	MOV	#L8D6A, R1	; 9AE0	LD B,A
 	SUB	R0, R1		; 9AE1	LD A,$6A
 	MOV	R1, R0		; 9AE3	SUB B
 	ADD	R0, R0		; 9AE4	ADD A,A		получили задержку
-L9AE5:	NOP			; 9AE5	LD B,$C8
-;L9AE7:	SOB	R1, L9AE7	; 9AE7	DJNZ $9AE7
+L9AE5:	MOV	#10., R1	; 9AE5	LD B,$C8
+L9AE7:	SOB	R1, L9AE7	; 9AE7	DJNZ $9AE7
 				; 9AE9	DEC A
 	SOB	R0, L9AE5	; 9AEA	JR NZ,$9AE5	delay
 	BR	L9B72		; 9AEC	JP $9B72
@@ -3884,7 +3884,7 @@ LB13C:
 ; Wait for a key and roll the RND SEED while waiting
 1$:	CALL	GETKEY
 	BNE	4$
-	;INC	L5C76		; RND SEED
+	INC	L5C76		; RND SEED
 	BR	1$
 4$:
 	CMP	R0, #064	; '4' ?
