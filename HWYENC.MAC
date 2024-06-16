@@ -1959,24 +1959,23 @@ L9A74:	.REPT	3			; loop unroll x3
 
 ; Routine -- Draw the shadow screen on the real screen, using draw markers LFD00
 L9A9B:	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
-	MOV	#L9BFC, R3	; 9A9B	LD HL,$9BFC	Address of table with shadow screen line addresses
-	MOV	(R3)+, R4	; 9A9E	LD A,(HL)	number of blocks in the line
+	MOV	#L9BFC, R5	; 9A9B	LD HL,$9BFC	Address of table with shadow screen line addresses
+	MOV	(R5)+, R4	; 9A9E	LD A,(HL)	number of blocks in the line
 L9A9F:				; 9A9F	INC HL		NOTE: byte replaced with word
 				; 9AA0	LD E,(HL)
 				; 9AA1	INC HL
-	MOV	(R3)+, R5	; 9AA2	LD D,(HL)	DE = address in the shadow screen
+	MOV	(R5)+, R3	; 9AA2	LD D,(HL)	DE = address in the shadow screen
 				; 9AA3	INC HL
 				; 9AA4	PUSH DE
 				; 9AA5	LD E,(HL)
 				; 9AA6	INC HL
-	MOV	(R3)+, R2	; 9AA7	LD D,(HL)	DE = address on the real screen
+	MOV	(R5)+, R2	; 9AA7	LD D,(HL)	DE = address on the real screen
 				; 9AA8	INC HL
 				; 9AA9	LD C,(HL)
 				; 9AAA	INC HL
-	MOV	(R3)+, R1	; 9AAB	LD B,(HL)	BC points to draw markers, end of the line
+	MOV	(R5)+, R1	; 9AAB	LD B,(HL)	BC points to draw markers, end of the line
 				; 9AAC	INC HL
-	PUSH	R3		; 9AAD	EX (SP),HL	теперь HL = адрес в теневом экране
-	MOV	R5, R3
+	PUSH	R5		; 9AAD	EX (SP),HL	теперь HL = адрес в теневом экране
 				; 9AAE	LD IXh,A	счётчик цикла по строке
 L9AB0:	TSTB	-(R1)		; 9AB0	LD A,(BC)	<
 				; 9AB1	AND A		|  is marker empty?
@@ -2010,13 +2009,12 @@ L9ABB:	.REPT	7			; loop unroll x8; R1 не портится
 	POP	R4
 L9ACA:						;	|
 	DEC	R3		; 9ACA	DEC L		|
-	DEC	R2		; 9ACB	DEC E		|  к предыдущей позиции в строке
-	DEC	R2
+	TST	-(R2)		; 9ACB	DEC E		|  к предыдущей позиции в строке
 				; 9ACC	DEC C		|  к предыдущему элементу массива
 				; 9ACD	DEC IXh		|
 	SOB	R4, L9AB0	; 9ACF	JP NZ,$9AB0	продолжение цикла по строке
-	POP	R3		; 9AD2	POP HL		восстанавливаем адрес в таблице L9BFC
-	MOV	(R3)+, R4	; 9AD3	LD A,(HL)	NOTE: byte replaced with word
+	POP	R5		; 9AD2	POP HL		восстанавливаем адрес в таблице L9BFC
+	MOV	(R5)+, R4	; 9AD3	LD A,(HL)	NOTE: byte replaced with word
 				; 9AD4	AND A		end of table?
 	BNE	L9A9F		; 9AD5	JP NZ,$9A9F	no => repeat
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
@@ -2028,7 +2026,7 @@ L9ACA:						;	|
 	SUB	R0, R1		; 9AE1	LD A,$6A
 	MOV	R1, R0		; 9AE3	SUB B
 	ADD	R0, R0		; 9AE4	ADD A,A		получили задержку
-L9AE5:	;NOP			; 9AE5	LD B,$C8
+L9AE5:	NOP			; 9AE5	LD B,$C8
 ;L9AE7:	SOB	R1, L9AE7	; 9AE7	DJNZ $9AE7
 				; 9AE9	DEC A
 	SOB	R0, L9AE5	; 9AEA	JR NZ,$9AE5	delay
@@ -3886,7 +3884,7 @@ LB13C:
 ; Wait for a key and roll the RND SEED while waiting
 1$:	CALL	GETKEY
 	BNE	4$
-	INC	L5C76		; RND SEED
+	;INC	L5C76		; RND SEED
 	BR	1$
 4$:
 	CMP	R0, #064	; '4' ?
