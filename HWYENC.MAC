@@ -2502,7 +2502,7 @@ L9DFC:	CMPB	R0, #10.	; 9DFC	CP $0A		x >= 10. ?
 	BHIS	L9E1A		; 9DFE	JP NC,$9E1A	yes => jump
 	INCB	7(R4)		; 9E01	LD A,(IX+$07)	get current direction 0..7
 				; 9E04	INC A	        rotate right
-	BICB	#370, R0	; 9E05	RES 3,A		0..7
+	BICB	#370, 7(R4)	; 9E05	RES 3,A		0..7
 				; 9E07	LD (IX+$07),A	set the direction
 	BR	L9E1A		; 9E0A	JP $9E1A	next record by IX
 ;
@@ -2805,21 +2805,21 @@ LA001:	MOVB	#376, (R4)	; A001	LD (IX+$00),$FE	 mark IX record as empty
 	JMP	L9E1A		; A005	JP $9E1A	next record by IX
 ;
 LA008:	CALL	LA270		; A008	CALL $A270	Get next random number
-	MOV	R3, R0		; A00B	LD A,L		rotate to random direction
-	BIC	#177771, R0	; A00C	AND $06		one of four directions: 0,2,4,6
-	MOVB	R0, 7(R4)	; A00E	LD (IX+$07),A	set direction
+				; A00B	LD A,L		rotate to random direction
+	BIC	#177771, R3	; A00C	AND $06		one of four directions: 0,2,4,6
+	MOVB	R3, 7(R4)	; A00E	LD (IX+$07),A	set direction
 	JMP	L9E1A		; A011	JP $9E1A
 ; Cont.point: rotate to random direction
 LA014:	CALL	LA270		; A014	CALL $A270	Get next random number
-	MOV	R3, R0		; A017	LD A,L		rotate to random direction
-	BIC	#177770, R0	; A018	AND $07		value 0..7
-	MOVB	R0, 7(R4)	; A01A	LD (IX+$07),A	set direction
+				; A017	LD A,L		rotate to random direction
+	BIC	#177770, R3	; A018	AND $07		value 0..7
+	MOVB	R3, 7(R4)	; A01A	LD (IX+$07),A	set direction
 	JMP	L9E1A		; A01D	JP $9E1A	next record by IX
 ; Cont.point: Frog
 LA020:	CALL	LA270		; A020	CALL $A270	Get next random number
-	MOV	R3, R0		; A023	LD A,L
-	BIC	#177770, R0	; A024	AND $07		value 0..7
-	MOVB	R0, 14(R4)	; A026	LD (IX+$0C),A
+				; A023	LD A,L
+	BIC	#177770, R3	; A024	AND $07		value 0..7
+	MOVB	R3, 14(R4)	; A026	LD (IX+$0C),A
 	JMP	L9DC8		; A029	JP $9DC8	Random movement with limitations
 ; Cont.point: 180 degree rotation: Star object hit something
 LA02C:	MOVB	7(R4), R0	; A02C	LD A,(IX+$07)	get direction 0..7
