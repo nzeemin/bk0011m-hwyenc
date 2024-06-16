@@ -99,12 +99,12 @@ L7A00:	; Table with sprite addresses
 ;   +$03,+$04 -- this plus current zone offset ($8F03) gives address on the screen
 ;   +$05 -- base sprite number, index in 7A00 table
 ;   +$06 -- movement pattern: 000 = Vorton, 006 = Fire, 012 = Block, 026 = Flat blocker, 032 = Barrel
-;   +$07 -- direction, copied from (IX+$0я) AND $07, values 0..7
+;   +$07 -- direction, copied from (IX+$0C) AND $07, values 0..7
 ;   +$08 -- movement flags ?? 0 = stop, 1 = move; bit 7 = 1: explosion
 ;   +$09 -- horz offset (bits 2-3 only)
 ;   +$0A -- offset from $8F00, where we have sprite number: 015,017,020,021,022,023
 ;   +$0B -- continuation point number from table $9000
-;   +$0C -- initial direction, copied to +$07
+;   +$0C -- initial direction, copied to +$07, values 0..7
 ;   +$0D,+$0E,+$0F -- initial values for +$00,+$01,+$02
 ;               $00 $01 $02 $03 $04 $05 $06 $07 $08 $09 $0A $0B $0C $0D $0E $0F
 L7B00:	.BYTE	376,336,001,231,334,330,002,002,001,014,021,054,004,044,164,002  ; Pawn   Zone 28
@@ -967,7 +967,7 @@ L941A:	ADD	R1, R4		; 941A	ADD IX,BC	|  next record
 L9423:
 	MOV	#L8A00, R4	; 9423	LD IX,$8A00	адрес таблицы объектов
 	MOVB	#14., 12(R4)	; 9427	LD (IX+$0A),$0E	 индекс спрайта -- первая запись это Vorton
-	CLRB	6(R4)		; 942B	LD (IX+$06),$00	 movement pattern -- обычное
+	CLRB	6(R4)		; 942B	LD (IX+$06),$00	 movement pattern = regular
 	MOV	#16., R2	; 942F	LD DE,$0010	ширина записи = 16.
 	MOVB	#4, R1		; 9432	LD B,$04	счётчик цикла
 L9434:	ADD	R2, R4		; 9434	ADD IX,DE	<
@@ -981,7 +981,7 @@ L9434:	ADD	R2, R4		; 9434	ADD IX,DE	<
 	MOV	#249., R1	; 9449	LD B,$F9	счётчик цикла = 249.
 L944B:	PUSH	R1		; 944B	PUSH BC		+1, сохраняем счётчик
 	MOV	#L8F4A, R3	; 944C	LD HL,$8F4A
-	MOVB	6(R4), R0	; 944F	LD A,(IX+$06)	movement pattern
+	MOVB	6(R4), R0	; 944F	LD A,(IX+$06)	get movement pattern
 	BIC	#177420, R0	; 9452	RES 4,A
 	CMPB	R0, #11.	; 9454	CP $0B
 	BLO	L945D		; 9456	JR C,$945D
@@ -1012,7 +1012,7 @@ L9468:	BIC	#177760, R0	; 9468	AND $0F
 	MOVB	(R3)+, (R2)+
 	MOVB	(R3)+, (R2)+
 	MOVB	14(R4), R0	; 9485	LD A,(IX+$0C)
-	BIC	#177770, R0	; 9488	AND $07
+	BIC	#177770, R0	; 9488	AND $07		0..7
 	MOVB	R0, 7(R4)	; 948A	LD (IX+$07),A	set direction
 	MOVB	10(R4), R0	; 948D	LD A,(IX+$08)
 	CMP	R0, #5		; 9490	CP $05
@@ -1076,9 +1076,8 @@ L94EE:	ADD	#16., R4	; 94EE	LD DE,$0010	next IX record
 				; 94F1	ADD IX,DE
 	POP	R1		; 94F3	POP BC		0, restore counter
 	DEC	R1		; 94F4	DEC B
-	BEQ	1$
-	JMP	L944B		; 94F5	JP NZ,$944B	повтор цикла
-1$:	RETURN			; 94F8	RET
+	BNE	L944B		; 94F5	JP NZ,$944B	повтор цикла
+	RETURN			; 94F8	RET
 
 ; Data block -- Sprite indices for ZONE digits
 L94F9:	.BYTE	001,004,010,017,020,022		; 0
@@ -1516,8 +1515,7 @@ L9866:	CLR	R0		; 9866	LD A,(IX+$00)
 	BEQ	L98D4		; 986B	JP Z,$98D4	да => пропускаем
 	BHIS	L98DC		; 986E	JP NC,$98DC	конец таблицы => переходим к отрисовке
 	MOV	R0, R1		; 9871	LD B,A
-	CLR	R0
-	BISB	6(R4), R0	; 9872	LD A,(IX+$06)	movement pattern
+	MOVB	6(R4), R0	; 9872	LD A,(IX+$06)	get movement pattern
 	CMPB	R0, #22.	; 9875	CP $16
 	BEQ	L98D4		; 9877	JP Z,$98D4	=> переходим к следующей записи
 	CMPB	R0, #25.	; 987A	CP $19
@@ -2363,16 +2361,14 @@ L9D29:	DEC	R0		; 9D29	DEC A
 	ASR	R0		; 9D2B	RRCA		bits 6-7
 	BIC	#177477, R0
 	MOV	R0, R3		; 9D2C	LD L,A
-	MOVB	7(R4), R0	; 9D2D	LD A,(IX+$07)	movement direction 0..7
-	BIC	#177400, R0
+	MOVB	7(R4), R0	; 9D2D	LD A,(IX+$07)	get movement direction 0..7
 	ADD	R0, R0		; 9D30	ADD A,A		(IX+$07)*2
 	ADD	R0, R0		; 9D31	ADD A,A	        (IX+$07)*4
 	ADD	R0, R0		; 9D32	ADD A,A		(IX+$07)*8 -- bits 3-5
 	ADD	R0, R3		; 9D33	ADD A,L		(IX+$07)*8+L -- bits 3-5 and 6-7
 				; 9D34	LD L,A
 	ADD	#L8E00, R3	; 9D35	LD H,$8E	8E00 table address
-	CLR	R0
-	BISB	(R3)+, R0	; 9D37	LD A,(HL)	get value from the table 8E00
+	MOVB	(R3)+, R0	; 9D37	LD A,(HL)	get value from the table 8E00
 	MOVB	(R4), R5	; 9D38	ADD A,(IX+$00)
 	ADD	R5, R0
 	BIC	#177400, R0
@@ -2459,8 +2455,7 @@ L9DAD:	MOVB	R0, 11(R4)	; 9DAD	LD (IX+$09),A	save horz offset
 	MOVB	R3, 3(R4)	; 9DBA	LD (IX+$03),L	save object offset
 	SWAB	R3
 	MOVB	R3, 4(R4)	; 9DBD	LD (IX+$04),H
-	CLR	R0
-	BISB	6(R4), R0	; 9DC0	LD A,(IX+$06)	get IX movement pattern
+	MOVB	6(R4), R0	; 9DC0	LD A,(IX+$06)	get IX movement pattern
 	CMPB	R0, #4		; 9DC3	CP $04
 	BNE	L9DE0		; 9DC5	JP NZ,$9DE0
 ; (IX+$06) == $04 : Random movement with limitations
@@ -2490,17 +2485,17 @@ L9DE0:	BIC	#16., R0	; 9DE0	RES 4,A
 	MOV	R3, R0		; 9DEA	LD A,L
 	CMPB	R0, #245.	; 9DEB	CP $F5	        x < 245. ?
 	BLO	L9DFC		; 9DED	JP C,$9DFC	yes => jump
-	MOVB	7(R4), R0	; 9DF0	LD A,(IX+$07)	get current direction
-	DEC	R0		; 9DF3	DEC A		rotate left
-	BIC	#177770, R0	; 9DF4	AND $07		0..7
-	MOVB	R0, 7(R4)	; 9DF6	LD (IX+$07),A	set the direction
+	DECB	7(R4)		; 9DF0	LD A,(IX+$07)	get current direction 0..7
+				; 9DF3	DEC A		rotate left
+	BICB	#370, 7(R4)	; 9DF4	AND $07		0..7
+				; 9DF6	LD (IX+$07),A	set the direction
 	BR	L9E1A		; 9DF9	JP $9E1A	next record by IX
 L9DFC:	CMPB	R0, #10.	; 9DFC	CP $0A		x >= 10. ?
 	BHIS	L9E1A		; 9DFE	JP NC,$9E1A	yes => jump
-	MOVB	7(R4), R0	; 9E01	LD A,(IX+$07)	get current direction
-	INC	R0		; 9E04	INC A	        rotate right
-	BIC	#177770, R0	; 9E05	RES 3,A		0..7
-	MOVB	R0, 7(R4)	; 9E07	LD (IX+$07),A	set the direction
+	INCB	7(R4)		; 9E01	LD A,(IX+$07)	get current direction 0..7
+				; 9E04	INC A	        rotate right
+	BICB	#370, R0	; 9E05	RES 3,A		0..7
+				; 9E07	LD (IX+$07),A	set the direction
 	BR	L9E1A		; 9E0A	JP $9E1A	next record by IX
 ;
 L9E0D:	CMP	R0, #10.	; 9E0D	CP $0A		= 10. ?
@@ -2582,7 +2577,7 @@ L9E6D:				; 9E6D	LD A,$04
 	BITB	#20, (R3)	; 9E72	BIT 4,(HL)	check movement pattern
 	BNE	L9E12		; 9E74	JP NZ,$9E12	alter IX movement and next by IX
 L9E77:	INC	R3		; 9E77	INC L		HL points to (+$07)
-	MOVB	7(R4), R0	; 9E78	LD A,(IX+$07)	get direction
+	MOVB	7(R4), R0	; 9E78	LD A,(IX+$07)	get direction 0..7
 	DEC	R0		; 9E7B	DEC A
 	DEC	R0		; 9E7C	DEC A		rotate left 90 degree
 	CMPB	R0, #5		; 9E7D	CP $05
@@ -2612,9 +2607,9 @@ L9EAE:	INC	R3		; 9EAE	INC L
 	INC	R3		; 9EAF	INC L		HL points to (+$08)
 	BISB	#100, R0	; 9EB0	SET 6,A
 	MOVB	R0, (R3)	; 9EB2	LD (HL),A	set movement
-	DEC	R3		; 9EB3	DEC L		HL points to (+$07)
-	MOVB	7(R4), R0	; 9EB4	LD A,(IX+$07)	get direction
-	MOVB	R0, (R3)	; 9EB7	LD (HL),A	copy direction
+				; 9EB3	DEC L		HL points to (+$07)
+	MOVB	7(R4), -(R3)	; 9EB4	LD A,(IX+$07)	get direction 0..7
+				; 9EB7	LD (HL),A	copy direction
 	BR	L9E1A		; 9EB8	JP $9E1A	next record by IX
 ; Cont.point
 L9EBB:	MOVB	#376, (R4)	; 9EBB	LD (IX+$00),$FE	 mark IX record as empty
@@ -2622,8 +2617,8 @@ L9EBF:				; 9EBF	LD A,$05
 	MOV	R2, R3		; 9EC1	EX DE,HL	HL points to (+$02)
 	ADD	#5, R3		; 9EC2	ADD A,L
 				; 9EC3	LD L,A		HL points to (+$07)
-	MOVB	7(R4), R0	; 9EC4	LD A,(IX+$07)	get direction
-	MOVB	R0, (R3)	; 9EC7	LD (HL),A	copy direction
+	MOVB	7(R4), (R3)	; 9EC4	LD A,(IX+$07)	get direction 0..7
+				; 9EC7	LD (HL),A	copy direction
 	MOVB	10(R4), R0	; 9EC8	LD A,(IX+$08)	get movement
 	DEC	R3		; 9ECB	DEC L		HL points to (+$06)
 	BITB	#20, (R3)	; 9ECC	BIT 4,(HL)	check movement pattern
@@ -2636,7 +2631,7 @@ L9ED2:	INC	R3		; 9ED2	INC L
 ; Cont.point: Auto-Vorton vs Auto-Vorton
 ; IX=8A30 DE=8A42  IX=8A20 DE=8A32  IX=8A10 HL=8A22
 L9ED7:	MOV	#L8F15, R3	; 9ED7	LD HL,$8F15
-	MOVB	6(R4), R0	; 9EDA	LD A,(IX+$06)	movement pattern
+	MOVB	6(R4), R0	; 9EDA	LD A,(IX+$06)	get movement pattern
 	BIC	#177400, R0	; 9EDD	AND A
 	BEQ	L9EEA		; 9EDE	JR Z,$9EEA	0 => jump
 	CMPB	R0, #1		; 9EE0	CP $01		1 ?
@@ -2803,7 +2798,7 @@ LA001:	MOVB	#376, (R4)	; A001	LD (IX+$00),$FE	 mark IX record as empty
 ;
 LA008:	CALL	LA270		; A008	CALL $A270	Get next random number
 	MOV	R3, R0		; A00B	LD A,L		rotate to random direction
-	BIC	#177771, R0	; A00C	AND $06		one of four directions
+	BIC	#177771, R0	; A00C	AND $06		one of four directions: 0,2,4,6
 	MOVB	R0, 7(R4)	; A00E	LD (IX+$07),A	set direction
 	JMP	L9E1A		; A011	JP $9E1A
 ; Cont.point: rotate to random direction
@@ -2819,9 +2814,9 @@ LA020:	CALL	LA270		; A020	CALL $A270	Get next random number
 	MOVB	R0, 14(R4)	; A026	LD (IX+$0C),A
 	JMP	L9DC8		; A029	JP $9DC8	Random movement with limitations
 ; Cont.point: 180 degree rotation: Star object hit something
-LA02C:	MOVB	7(R4), R0	; A02C	LD A,(IX+$07)	get direction
+LA02C:	MOVB	7(R4), R0	; A02C	LD A,(IX+$07)	get direction 0..7
 	ADD	#4, R0		; A02F	ADD A,$04	180 degree rotation
-	BIC	#177410, R0	; A031	RES 3,A
+	BIC	#177770, R0	; A031	RES 3,A		0..7
 	MOVB	R0, 7(R4)	; A033	LD (IX+$07),A	set direction
 	JMP	L9E1A		; A036	JP $9E1A	next record by IX
 ;
