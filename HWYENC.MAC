@@ -590,8 +590,8 @@ L911B:	CALL	LB890		; 911B	CALL $B890	Print text
 	POP	R1
 	SOB	R1, 1$
 	MOV	#LB839, R3		; "PRESS ANY KEY"
-	CALL	LB890
-	RETURN			; 911E	RET		Exit GAME MODE
+	JMP	LB890	;CALL	LB890
+				; 911E	RET		Exit GAME MODE
 L911F:				; 911F	LD A,$BF
 				; 9121	IN A,($FE)
 	CMP	LKEY, #120 ; P	; 9123	BIT 4,A		Check for pause key
@@ -1138,7 +1138,8 @@ L95EF:
 				; 95F2	LD DE,$FD01
 				; 95F5	LD (HL),$07
 	MOV	#288., R1	; 95F7	LD BC,$023F	576.
-10$:	MOV	#003407, (R3)+	; 95FA	LDIR		loop unroll x2
+	MOV	#003407, R0
+10$:	MOV	R0, (R3)+	; 95FA	LDIR		loop unroll x2
 	SOB	R1, 10$
 ;
 	MOV	#<LD900+5>, R3	; 95FC	LD HL,$D905
@@ -1147,24 +1148,24 @@ L95EF:
 	MOV	#L7100, R4	; 9601	LD IX,$7100
 	MOV	#8., R1		; 9605	LD B,$08
 L9607:	PUSH	R1		; 9607	PUSH BC
-	MOVB	10(R4), R0	; 9608	LD A,(IX+$08)
-	MOVB	R0, (R2)+	; 960B	LD (DE),A
-				; 960C	INC DE
-	MOVB	(R4)+, R0	; 960D	LD A,(IX+$00)
-	MOVB	R0, (R2)+	; 9610	LD (DE),A
+	CLR	R0		; 9608	LD A,(IX+$08)
+	BISB	10(R4), R0	; 960B	LD (DE),A
+	SWAB	R0		; 960C	INC DE
+	BISB	(R4)+, R0	; 960D	LD A,(IX+$00)
+				; 9610	LD (DE),A
 				; 9611	INC DE
-	MOV	#30., R1	; 9612	LD BC,$001E
-1$:	MOVB	(R3)+, (R2)+	; 9615	LDIR
+	MOV	#16., R1	; 9612	LD BC,$001E
+1$:	MOV	R0, (R2)+	; 9615	LDIR
 	SOB	R1, 1$
 				; 9617	INC IX
-	INC	R3		; 9619	INC HL
-	INC	R3		; 961A	INC HL
+				; 9619	INC HL
+				; 961A	INC HL
 	POP	R1		; 961B	POP BC
 	SOB	R1, L9607	; 961C	DJNZ $9607
-	SUB	#256., R3	; 961E	DEC H
-	MOV	#544., R1	; 961F	LD BC,$1100
+				; 961E	DEC H
+	MOV	#272., R1	; 961F	LD BC,$1100
 2$:	.REPT	8.		; 9622	LDIR
-	MOVB	(R3)+, (R2)+
+	MOV	(R3)+, (R2)+
 	.ENDR			;		loop unroll x8
 	SOB	R1, 2$
 	MOV	#<LD900+283.>, R3	; 9624	LD HL,$DA1B
@@ -1617,28 +1618,27 @@ L98E2:	INC	R3		; 98E2	INC L		NOTE: первый байт таблицы заме
 	MOV	(R3), R2	; 98F8	LD E,(HL)
 				; 98F9	INC HL
 				; 98FA	LD D,(HL)	DE = sprite address
-	MOVB	11(R4), R1	; 98FB	LD A,(IX+$09)	get horz offset (bits 2-3 only)
-	BIC	#177763, R1
-	ASR	R1		; 98FE	ADD A,A	        bits 3-4
+	MOVB	11(R4), R0	; 98FB	LD A,(IX+$09)	get horz offset (bits 2-3 only)
+	BIC	#177763, R0
+	ASR	R0		; 98FE	ADD A,A	        bits 3-4
 				; 98FF	LD C,A
 				; 9900	LD B,$00
-	ADD	#L9915, R1	; 9902	LD HL,$9915	jump base address
-	MOV	(R1), R3	; 9905	ADD HL,BC
+				; 9902	LD HL,$9915	jump base address
+				; 9905	ADD HL,BC
 	CLR	R1
 	BISB	4(R4), R1	; 9906	LD C,(IX+$03)
 	SWAB	R1
 	BISB	3(R4), R1	; 9909	LD B,(IX+$04)	BC = object offset
 	MOV	R3, R5		; 990C	PUSH HL		save HL
-	MOV	L8F03, R3	; 990D	LD HL,($8F03)	current zone offset
-	ADD	R1, R3		; 9910	ADD HL,BC
-	MOV	R3, R1		; 9911	LD C,L
+				; 990D	LD HL,($8F03)	current zone offset
+	ADD	L8F03, R1	; 9910	ADD HL,BC
+				; 9911	LD C,L
 				; 9912	LD B,H		BC = address where to draw the sprite
 ;	CMP	R1, #LFF29 ;DEBUG вышли за границу экрана?
 ;	BLO	1$	   ;DEBUG нет => переходим
 ;	HALT
-1$:	PUSH	R3		; 9913	EX (SP),HL	restore HL and set value on stack
-	MOV	R5, R3
-	CALL	(R3)		; 9914	JP (HL)		Draw the sprite
+1$:	PUSH	R1		; 9913	EX (SP),HL	restore HL and set value on stack
+	CALL	@L9915(R0)	; 9914	JP (HL)		Draw the sprite
 ;
 ;NOTE: Code block 9915-9932 replaced with table L9915
 ;NOTE: Procedure 9933 moved below, close to other sprite drawing procedures
@@ -2562,13 +2562,12 @@ L9E4C:	MOV	R4, R0		; 9E4C	LD A,IXl
 L9E62:	CLR	R3
 	BISB	13(R4), R3	; 9E62	ADD A,(IX+$0B)	add IX base continuation point number
 	ADD	R3, R0		; 9E65	LD L,A		now L should be 0..240.
-	BIC	#177401, R0
-	ADD	#L9000, R0	; 9E66	LD H,$90	start of continuation points table = $9000
-	MOV	(R0), R3	; 9E68	LD A,(HL)	get the continuation point address
+	BIC	#177401, R0	; 9E66	LD H,$90	start of continuation points table = $9000
+				; 9E68	LD A,(HL)	get the continuation point address
 				; 9E69	INC L
 				; 9E6A	LD H,(HL)
 				; 9E6B	LD L,A
-	JMP	(R3)		; 9E6C	JP (HL)		jump to continuation point
+	JMP	@L9000(R0)	; 9E6C	JP (HL)		jump to continuation point
 ;
 ; Continuation points, called using $9000 table
 ; DE points to (+$02) for loop by HL
@@ -2863,7 +2862,7 @@ LA07B:				; A07B	LD A,B
 LKEY:	.WORD	0			; Last key pressed
 
 ; Routine: Bullet died, update Power indicator
-LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
+LA10B:	PUSH	R0		; A10B	EX AF,AF'	save AF
 	PUSH	R2
 	PUSH	R3
 	MOVB	L8F18, R2	; A10C	LD A,($8F18)
@@ -2885,7 +2884,7 @@ LA10B:	MOV	R0, <LA119+2>	; A10B	EX AF,AF'	save AF
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	POP	R3
 	POP	R2
-LA119:	MOV	#12345, R0	; A119	EX AF,AF'	restore AF
+LA119:	POP	R0	; A119	EX AF,AF'	restore AF
 	RETURN			; A11A	RET
 
 ; Routine: Objects logic
@@ -3259,8 +3258,8 @@ LA332:	MOV	#20., R0	; A332	LD A,$14	<  action = rotate left
 LA344:	MOVB	#1, (R3)	; A344	LD (HL),$01	<  start moving
 	ADD	#16., R3	; A346	ADD HL,DE	|  to the next record
 	SOB	R1, LA344	; A347	DJNZ $A344	repeat
-	CALL	L92F5		; A349	CALL $92F5
-	RETURN			; A34C	RET
+	JMP	L92F5		; A349	CALL $92F5
+				; A34C	RET
 
 ; Routine: Perform some action in animation mode
 ; R0 = current action: 0 = none, $12 = rotate right, $14 = rotate left
@@ -3381,8 +3380,8 @@ LA403:
 				; A406	LD BC,$00A0
 				; A409	LDIR	        Fill attributes
 	CALL	LA42B		; A40B	CALL $A42B	Show score
-	CALL	LA478		; A40E	CALL $A478	Show score
-	RETURN			; A411	RET
+	BR	LA478		; A40E	CALL $A478	Show score
+				; A411	RET
 
 ; Routine: Increment score
 ; BC = score increment value
@@ -3528,29 +3527,29 @@ LA54F:	MOVB	(R4), R0	; A54F	LD A,(IX+$00)
 	BIT	#177400, R3	; A56F	LD A,H
 				; A570	AND A
 	BNE	LA5DA		; A571	JP NZ,$A5DA
-	MOVB	11(R4), R1	; A574	LD A,(IX+$09)	get horz offset (bits 2-3 only)
-	BIC	#177763, R1
-	ASR	R1		; A577	ADD A,A
-	ADD	#L9915, R1	; A578	LD C,A
+	MOVB	11(R4), R0	; A574	LD A,(IX+$09)	get horz offset (bits 2-3 only)
+	BIC	#177763, R0
+	ASR	R0		; A577	ADD A,A
+				; A578	LD C,A
 				; A579	LD B,$00
 				; A57B	LD HL,$A592
-	MOV	(R1), R3	; A57E	ADD HL,BC
+				; A57E	ADD HL,BC
 	CLR	R1
 	BISB	4(R4), R1	; A57F	LD C,(IX+$03)
 	SWAB	R1
 	BISB	3(R4), R1	; A582	LD B,(IX+$04)	BC = object offset
 				; A585	EX DE,HL
-	MOV	L8F03, R2	; A586	LD HL,($8F03)	current zone offset
-	ADD	R1, R2		; A589	ADD HL,BC
-	MOV	R2, R1		; A58A	LD C,L
+				; A586	LD HL,($8F03)	current zone offset
+	ADD	L8F03, R1	; A589	ADD HL,BC
+				; A58A	LD C,L
 				; A58B	LD B,H		BC = address where to draw the sprite
 ;	CMP	R1, #LFF29 ;DEBUG вышли за границу экрана?
 ;	BLO	1$	   ;DEBUG нет => переходим
 ;	HALT
-1$:	PUSH	R2		; A58C	PUSH HL
+1$:	PUSH	R1		; A58C	PUSH HL
 				; A58D	EX DE,HL
 	MOV	#LBBC0, R2	; A58E	LD DE,$BBC0	Sprite #5 flat blocker
-	CALL	(R3)		; A591	JP (HL)
+	CALL	@L9915(R0)	; A591	JP (HL)
 ;
 ;NOTE: Code block A592-A5AС replaced to table L9915
 ;
@@ -3741,8 +3740,8 @@ LA8C5:
 	CALL	LA1F8		; A8C8	CALL $A1F8	DEMO mode objects logic
 	CALL	L9C7B		; A8CB	CALL $9C7B	Process object movement
 	CALL	L985A		; A8CE	CALL $985A	Prepare table 8D52 (sort out objects by depth), and draw the objects
-	CALL	L9A9B		; A8D1	CALL $9A9B	Draw the shadow screen on the real screen, using draw markers
-	RETURN			; A8D4	RET
+	JMP	L9A9B		; A8D1	CALL $9A9B	Draw the shadow screen on the real screen, using draw markers
+				; A8D4	RET
 
 LA8D5:	.BYTE	0
 	.EVEN
@@ -3758,10 +3757,9 @@ LA8E1:	ASL	R0		; A8E1	ADD A,A
 				; A8E2	ADD A,A
 				; A8E3	LD C,A
 				; A8E4	LD B,$00
-	MOV	#LA8EB, R3	; A8E6	LD HL,$A8EB
-	ADD	R0, R3		; A8E9	ADD HL,BC
-	MOV	(R3), R3		; Get jump address
-	JMP	(R3)		; A8EA	JP (HL)
+				; A8E6	LD HL,$A8EB
+				; A8E9	ADD HL,BC
+	JMP	@LA8EB(R0)	; A8EA	JP (HL)
 LA8EB:	.WORD	LA902, LA902, LAA61
 ;LA8EB:	.WORD	LA902, LA91D, LA922, LA962, LA99E, LAA61
 
@@ -3988,42 +3986,42 @@ LB2DA:	MOV	#LD900, R3	; B2DA	LD HL,$D900
 	CLR	(R3)+
 	.ENDR				; loop unroll x14
 	SOB	R1, 1$
-	MOV	#LDF00, R3	; B2E7	LD HL,$DF00
-	MOV	R3, R2		; B2EA	LD D,H
+	MOV	#LDF00, R5	; B2E7	LD HL,$DF00
+	MOV	R5, R2		; B2EA	LD D,H
 				; B2EB	LD E,L
 	MOV	#L7100, R4	; B2EC	LD IX,$7100
-	MOV	#8., R1		; B2F0	LD B,$08
-LB2F2:	PUSH	R1		; B2F2	PUSH BC
-	MOVB	10(R4), R0	; B2F3	LD A,(IX+$08)
-	MOVB	R0, (R2)+	; B2F6	LD (DE),A
+	MOV	#8., R0		; B2F0	LD B,$08
+LB2F2:				; B2F2	PUSH BC
+	CLR	R3		; B2F3	LD A,(IX+$08)
+	BISB	10(R4), R3	; B2F6	LD (DE),A
 				; B2F7	INC DE
-	MOVB	(R4)+, R0	; B2F8	LD A,(IX+$00)
-	MOVB	R0, (R2)+	; B2FB	LD (DE),A
+	SWAB	R3		; B2F8	LD A,(IX+$00)
+	BISB	(R4)+, R3	; B2FB	LD (DE),A
 				; B2FC	INC DE
-	MOV	#30.,R1		; B2FD	LD BC,$001E
-2$:	MOVB	(R3)+, (R2)+	; B300	LDIR
+	MOV	#16., R1	; B2FD	LD BC,$001E
+2$:	MOV	R3, (R2)+	; B300	LDIR
 	SOB	R1, 2$
 				; B302	INC IX
-	INC	R3		; B304	INC HL
-	INC	R3		; B305	INC HL
-	POP	R1		; B306	POP BC
-	SOB	R1, LB2F2	; B307	DJNZ $B2F2
-	SUB	#256., R3	; B309	DEC H
-	MOV	#552., R1	; B30A	LD BC,$1140	4416.
+				; B304	INC HL
+				; B305	INC HL
+				; B306	POP BC
+	SOB	R0, LB2F2	; B307	DJNZ $B2F2
+	MOV	R5, R3		; B309	DEC H
+	MOV	#276., R1	; B30A	LD BC,$1140	4416.
 3$:	.REPT	8.		; B30D	LDIR
-	MOVB	(R3)+, (R2)+
-	.ENDR				; loop unroll x8
+	MOV	(R3)+, (R2)+
+	.ENDR				; loop unroll x16
 	SOB	R1, 3$
-	MOV	#LDF00, R3	; B30F	LD HL,$DF00
-	MOV	#<LDF00+1>, R2	; B312	LD DE,$DF01
-	MOVB	#377, (R3)	; B315	LD (HL),$FF
-	MOV	#31., R1	; B317	LD BC,$001F
-4$:	MOVB	(R3)+, (R2)+	; B31A	LDIR
+	MOV	#LDF00, R2	; B30F	LD HL,$DF00
+				; B312	LD DE,$DF01
+	MOV	#177777, R3	; B315	LD (HL),$FF
+	MOV	#16., R1	; B317	LD BC,$001F	31.
+4$:	MOV	R3, (R2)+	; B31A	LDIR
 	SOB	R1, 4$
 	MOV	#LDF00, R3	; B31C	LD HL,$DF00
 	MOV	#<LDBC0+5504.>, R2	; B31F	LD DE,$F140
-	MOV	#32., R1	; B322	LD BC,$0020
-5$:	MOVB	(R3)+, (R2)+	; B325	LDIR
+	MOV	#16., R1	; B322	LD BC,$0020	32.
+5$:	MOV	(R3)+, (R2)+	; B325	LDIR
 	SOB	R1, 5$
 	MOV	#<LDF00+32.>, R3	; B327	LD HL,$DF20
 	MOV	#31., R2	; B32A	LD DE,$001F
@@ -4081,7 +4079,6 @@ LB39A:	;STUB
 LB3A9:
 	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#<SCREEN+2000>, R2	; Address on the real screen = game screen start + 18. lines
-
 	MOV	#<LDBC0+576.>, R3	; Copy from
 	MOV	#<192.-18.-19.>, R4	; Number of lines to copy
 1$:	MOV	#4., R1			; Counter to loop thru the line
@@ -4156,20 +4153,20 @@ LB433:	PUSH	R2		; B433	PUSH DE		save loop counter
 	MOVB	R0, R3		; B438	LD E,A
 	ASR	R3		; B439	LD D,$00
 	ASR	R3
-	ADD	#LB446, R3	; B43B	LD HL,$B446
-	MOV	(R3), R3	; B43E	ADD HL,DE
+				; B43B	LD HL,$B446
+				; B43E	ADD HL,DE
 	PUSH	R0		; B43F	PUSH AF
 	PUSH	R1		; B440	PUSH BC
 	MOV	LB4CD, R2	; B441	LD DE,($B4CD)	Get mask and sprite address
-	CALL	(R3)		; B445	JP (HL)		Draw the sprite
+	CALL	@LB446(R3)	; B445	JP (HL)		Draw the sprite
 ;
 ;NOTE: Code block B446-B460 replaced with table LB446
 ;
 LB461:	POP	R1		; B461	POP BC
 	POP	R0		; B462	POP AF
-LB463:	MOV	#96., R3	; B463	LD HL,$0060
-	ADD	R1, R3		; B466	ADD HL,BC
-	MOV	R3, R1		; B467	LD C,L
+LB463:				; B463	LD HL,$0060
+	ADD	#96., R1	; B466	ADD HL,BC
+				; B467	LD C,L
 				; B468	LD B,H
 	ADD	#24., R0	; B469	ADD A,$18
 	CMP	R0, #32.	; B46B	CP $20
@@ -4192,9 +4189,11 @@ LB472:	MOV	LB4CB, R3	; B472	LD HL,($B4CB)	restore HL
 	CALL	LB3A9		; B487	CALL $B3A9	Prepare screen
 	MOV	#LB499, R3	; B48A	LD HL,$B499
 	MOV	#LD900, R2	; B48D	LD DE,$D900
-	MOVB	#50., R1	; B490	LD BC,$0032
-1$:	MOVB	(R3)+, (R2)+	; B493	LDIR
+	MOV	#12., R1	; B490	LD BC,$0032	50. bytes
+1$:	MOV	(R3)+, (R2)+	; B493	LDIR
+	MOV	(R3)+, (R2)+		; loop unroll x4
 	SOB	R1, 1$
+	MOV	(R3)+, (R2)+		; last iteration
 	POP	R0		; B495	POP AF
 	POP	R1		; B496	POP BC
 	POP	R3		; B497	POP HL
