@@ -638,22 +638,20 @@ L918C:	MOV	L8F1A, R3	; 918C	LD HL,($8F1A)	get Mission Time low counter
 				; 9192	AND A	        time's out?
 	BNE	L91C3		; 9193	JR NZ,$91C3	no => jump
 ; Show Mission Time change
-	MOVB	L8F19, R0	; 9195	LD A,($8F19)	get high counter
+	MOVB	L8F19, R4	; 9195	LD A,($8F19)	get high counter
 ;NOTE: Block 9198..919E removed, not needed
-	DECB	R0		; 91A1	DEC A
-	MOVB	R0, L8F19	; 91A2	LD ($8F19),A
-	MOV	R0, R2		; 91A5	XOR A
+	DECB	R4		; 91A1	DEC A
+	MOVB	R4, L8F19	; 91A2	LD ($8F19),A
+	MOV	R4, R2		; 91A5	XOR A
 	ASR	R2
 	ASR	R2		; Divide by 4
 	ADD	#<SCRIND+<24.*64.>+38.>, R2	; Screen address Mission Time
-	BIC	#177770, R0	; 0..7
-	MOV	#8., R4
-	SUB	R0, R4		; 8..1.
+	BIS	#177770, R4	; -8. .. -1
+	NEG	R4		; +8. .. +1
 	MOV	#177777, R0
 1$:	CLC
 	ROR	R0		; shift right by 0..7 bits
-	CLC
-	ROR	R0
+	ASR	R0
 	SOB	R4, 1$
 	BIC	#^B1010101110101011, R0
 	MOV	#7, R1		; 91A6	LD B,$07	7 lines
@@ -2215,8 +2213,7 @@ L9BF3:	MOV	#1, R1		; 9BF3	LD B,$01
 ; Update Lasertron movement indicator
 ; R0 = movement flag byte: 0 or ??
 L9BD9:	SXT	R0
-	MOV	#177777, R5
-	XOR	R5, R0			; inverse R0
+	COM	R0			; inverse R0
 	MOV	#<SCRIND+<8.*64.>+32.>, R2	; Address on the screen
 	MOV	#<L6020+420>, R3
 	MOV	#8., R1
@@ -2904,7 +2901,7 @@ LA11B:
 				; A12C	LD B,A
 	CLR	R0		; A12D	XOR A
 	MOV	#L8F1D, R3	; A12E	LD HL,$8F1D	HL = $8F1D
-	CLC
+	;CLC				; CLR R0 reset the carry flag before
 	RORB	(R3)		; A131	SRL (HL)
 ;	BNE	LA155		; A133	JP NZ,$A155
 	BITB	R1, #4		; A136	BIT 2,B		break/stop?
@@ -3351,9 +3348,9 @@ LA3D3:
 	MOV	#MMODE5, @#177716	; Включаем режим памяти 5
 	MOV	#L6020, R3	; A3E0	LD HL,$6020
 	MOV	#SCRIND, R2	; A3E3	LD DE,$5060
-	MOV	#34., R0	; A3E6	LD A,$22
+				; A3E6	LD A,$22	34. строки
 				; A3E8	EX AF,AF'
-LA3E9:	MOV	#32., R1	; A3E9	LD BC,$0020
+LA3E9:	MOV	#<32.*34.>, R1	; A3E9	LD BC,$0020
 				; A3EC	EX AF,AF'
 				; A3ED	PUSH DE
 1$:				; A3EE	LDIR
@@ -3362,13 +3359,13 @@ LA3E9:	MOV	#32., R1	; A3E9	LD BC,$0020
 	MOV	PXCONH(R5), (R2)+		; Конвертируем пикселы по таблице
 	SOB	R1, 1$
 				; A3F0	POP DE
-	DEC	R0		; A3F1	DEC A
-	BEQ	LA403		; A3F2	JR Z,$A403
+				; A3F1	DEC A
+				; A3F2	JR Z,$A403
 				; A3F4	EX AF,AF'
 				; A3F5	INC D
 				; A3F6	LD A,D
 				; A3F7	CP $58
-	BR	LA3E9		; A3F9	JR C,$A3E9
+				; A3F9	JR C,$A3E9
 				; A3FB	LD D,$50
 				; A3FD	LD A,$20
 				; A3FF	ADD A,E
@@ -3857,10 +3854,10 @@ LB0E1:
 	MOV	#170., R4	; B0E1	LD HL,$785A
 	MOV	#90., R3
 	CALL	LB203		; B0E4	CALL $B203	Sound
-LB0E7:			; B0E7	XOR A
+LB0E7:				; B0E7	XOR A
 	;CALL	GETKEY		; B0E8	IN A,($FE)	Check keyboard
-			; B0EA	CPL
-			; B0EB	AND $1F
+				; B0EA	CPL
+				; B0EB	AND $1F
 	;BNE	LB0E7		; B0ED	JR NZ,$B0E7
 	CALL	LB2DA		; B0EF	CALL $B2DA	Prepare shadow screen
 	MOV	#0, LB4CF	; B0F2	XOR A
