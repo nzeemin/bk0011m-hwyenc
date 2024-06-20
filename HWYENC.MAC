@@ -665,21 +665,21 @@ L91A8:	MOV	R0, (R2)	; 91A8	LD (HL),A
 	BNE	L91C0		; 91AF	JP NC,$91C0
 ; Mission Time is out
 	MOV	#L9247, R3	; 91B2	LD HL,$9247	"TOO LATE MISSION TERMINATED"
-	JMP	L911B		; 91B5	JP $911B	Print text and Exit
+	BR	L911B		; 91B5	JP $911B	Print text and Exit
 ;
 ;NOTE: Block 91B8..91BE removed, not needed
 L91C0:	MOV	#2000, R3	; 91C0	LD HL,$0DAC	reset Mission Time low counter
 L91C3:	MOV	R3, L8F1A	; 91C3	LD ($8F1A),HL	save the counter
-L91C6:		; 91C6	LD A,R
-		; 91C8	SLL A
+L91C6:				; 91C6	LD A,R
+				; 91C8	SLL A
 	MOV	L8F01, R3	; 91CA	LD HL,($8F01)	get object table address
 	CLR	R1		; 91CD	LD A,($8F17)
 	BISB	L8F17, R1	; 91D0	LD C,A
-		; 91D1	JR NC,$91C6	delay
+				; 91D1	JR NC,$91C6	delay
 	MOVB	(R3), R0	; 91D3	LD A,(HL)
 	CMPB	R0, #376	; 91D4	CP $FE		dead Vorton?
 	BHIS	L91D9		; 91D6	JP C,$910A	no => continue main loop
-	JMP	L910A
+	BR	L910A
 L91D9:	MOV	#16., R2	; 91D9	LD DE,$0010
 L91DC:	ADD	R2, R3		; 91DC	ADD HL,DE	next record
 	INCB	R1		; 91DD	INC C
@@ -2651,7 +2651,7 @@ L9EFC:	MOVB	R0, L8F1D	; 9EFC	LD ($8F1D),A
 	JMP	L9E1A		; 9EFF	JP $9E1A	next record by IX
 ; Cont.point
 L9F02:	MOV	R2, R3		; 9F02	EX DE,HL	HL points to (+$02)
-	JMP	L9E45		; 9F03	JP $9E45	next record by HL
+	BR	L9E45		; 9F03	JP $9E45	next record by HL
 ; Cont.point
 L9F06:	MOV	R2, R3		; 9F06	EX DE,HL	HL points to (+$02)
 	DEC	R3		; 9F07	DEC L
@@ -3960,15 +3960,15 @@ LB21E:	.WORD	<SCREEN+<0.*64.>+20.>
 	.BYTE	130,212,121,145,144,130,137,142,115,123,137,143,144,121,115,140	; AUTHOR
 	.BYTE	121,136,121,151,131,212,377,000
 	.WORD	<SCREEN+<88.*64.>+48.>
-	.BYTE	131,300,212,025,050,031,044,377					; 0 EXIT
+	.BYTE	131,300,212,125,150,131,144,377					; 0 EXIT
 	.WORD	<SCREEN+<104.*64.>+40.>
-	.BYTE	132,304,212,040,021,034,025,044,044,025,377,000			; 4 PALETTE
+	.BYTE	132,304,212,140,121,134,125,144,144,125,377,000			; 4 PALETTE
 	.WORD	<SCREEN+<120.*64.>+32.>
-	.BYTE	132,305,212,031,036,026,037,042,035,021,044,031,037,036,377,000	; 5 INFORMATION
+	.BYTE	132,305,212,131,136,126,137,142,135,121,144,131,137,136,377,000	; 5 INFORMATION
 	.WORD	<SCREEN+<136.*64.>+24.>
-	.BYTE	132,306,212,024,025,035,037,036,043,044,042,021,044,031,037,036,377,000	; 6 DEMONSTRATION
+	.BYTE	132,306,212,124,125,135,137,136,143,144,142,121,144,131,137,136,377,000	; 6 DEMONSTRATION
 	.WORD	<SCREEN+<152.*64.>+16.>
-	.BYTE	132,307,212,043,044,021,042,044,015,027,021,035,025,377		; 7 START GAME
+	.BYTE	132,307,212,143,144,121,142,144,115,127,121,135,125,377		; 7 START GAME
 	.WORD	<SCREEN+<178.*64.>>
 	.BYTE	132,212,123,137,140,151,142,131,127,130,144,115,101,111,110,105	; COPYRIGHT 1985 VORTEX SOFTWARE
 	.BYTE	115,146,137,142,144,125,150,115,143,137,126,144,147,121,142,125,212,376
@@ -4363,7 +4363,7 @@ LB62C:	.WORD	SCREEN+<40.*64.>+16.
 	.WORD	SCREEN+<120.*64.>+40.
 	.ASCII	/FOR@MOVEMENT@/
 	.BYTE	377
-	.WORD	SCREEN+<128.*64.>+42.
+	.WORD	SCREEN+<128.*64.>+50.
 	.ASCII	/@FIRE@@/
 	.BYTE	377
 	.WORD	SCREEN+<144.*64.>+42.
@@ -4386,49 +4386,85 @@ LB8BB:	MOV	(R3)+, R2	; B8BB	LD D,(HL)
 	INC	R3		; B8BF	INC HL
 LB8C0:	CLR	R0		; B8C0	LD A,(HL)
 	BISB	(R3)+, R0	; B8C1	INC HL
-	CMP	R0, #254.	; B8C2	CP $FE
+	CMPB	R0, #254.	; B8C2	CP $FE
 	BLO	LB8C9		; B8C4	JR C,$B8C9
 	BNE	1$
 	MOV	#MMODE1, @#177716	; Включаем основной режим памяти
 	RETURN                  ; B8C6	RET Z
-1$:	BIT	#1, R3
-	BEQ	LB8BB
-	INC	R3			; Alignment to an even address
+1$:	MOV	R3, R0
+	ASR	R0
+	ADC	R3			; Alignment to an even address
 	BR	LB8BB		; B8C7	JR $B8BB
-LB8C9:	BIC	#177700, R0	; B8C9	AND $3F
-	PUSH	R3		; B8CB	PUSH HL
-	MOV	R0, R3		; B8CC	LD L,A
+LB8C9:				; B8C9	AND $3F
+				; B8CB	PUSH HL
+	MOV	R0, R4		; B8CC	LD L,A
 				; B8CD	LD H,$00
 				; B8CF	PUSH HL
-	ASL	R3		; B8D0	ADD HL,HL
-	ASL	R3		; B8D1	ADD HL,HL
+	ASL	R0		; B8D0	ADD HL,HL
+	ASL	R0		; B8D1	ADD HL,HL
+	MOV	R0, R1
+	BIC	#177400, R0		; clear color bits
+	BIC	#177700, R4
 				; B8D2	POP BC
-	ADD	R0, R3		; B8D3	ADD HL,BC	HL <- HL * 5
-	ADD	#L5B00, R3	; B8D4	LD BC,$5B00	font address
+	ADD	R0, R4		; B8D3	ADD HL,BC	HL <- HL * 5
+	ADD	#L5B00, R4	; B8D4	LD BC,$5B00	font address
 				; B8D7	ADD HL,BC
-	PUSH	R2		; B8D8	PUSH DE
+				; B8D8	PUSH DE
 				; B8D9	XOR A
 	CLR	(R2)		; B8DA	LD (DE),A	write to the screen
-				; B8DB	LD A,$7F
-	ADD	#64., R2	; B8DD	INC D		next line
-	MOV	#025252, (R2)	; B8DE	LD (DE),A	write to the screen
-	ADD	#64., R2	; B8DF	INC D		next line
-	MOV	#5, R1		; B8E0	LD B,$05	counter = 5
-LB8E2:	MOVB	(R3)+, R0	; B8E2	LD A,(HL)
+	MOV	#64., R5	; B8DB	LD A,$7F
+	ADD	R5, R2		; B8DD	INC D		next line
+	SWAB	R1
+	BIC	#177774, R1		; 0..3
+	ASL	R1
+	JMP	@TDRSEL(R1)
+;
+TYELLO:	MOV	#012525, (R2)		; write to the screen
+	ADD	R5, R2			; next line
+	MOV	#5, R1			; counter = 5
+1$:	MOVB	(R4)+, R0
+	ASL	R0
+	MOV	PXCONH(R0), (R2)	; Convert pixels, write to the screen
+	ADD	R5, R2			; next line
+	SOB	R1, 1$			; repeat
+	MOV	#012525, (R2)		; write to the screen
+	SUB	#<64.*7.-2>, R2		; next position on the screen
+	BR	LB8C0
+;
+TMAGEN:	MOV	#025252, (R2)		; write to the screen
+	ADD	R5, R2			; next line
+	MOV	#5, R1			; counter = 5
+1$:	MOVB	(R4)+, R0
+ 	ASL	R0
+ 	MOV	PXCONH(R0), R0		; Convert pixels
+ 	ASL	R0
+ 	MOV	R0, (R2)		; write to the screen
+	ADD	R5, R2			; next line
+	SOB	R1, 1$			; repeat
+	MOV	#025252, (R2)		; write to the screen
+	SUB	#<64.*7.-2>, R2		; next position on the screen
+	BR	LB8C0
+;
+TWHITE:	MOV	#037777, (R2)		; write to the screen
+	ADD	R5, R2			; next line
+	MOV	#5, R1			; counter = 5
+1$:	MOVB	(R4)+, R0
 	ASL	R0
 	MOV	PXCONH(R0), R0		; Convert pixels
+	MOV	R0, (R2)		; write to the screen
 	ASL	R0
-	MOV	R0, (R2)	; B8E3	LD (DE),A	write to the screen
-	ADD	#64., R2	; B8E4	INC D		next line
-				; B8E5	INC HL
-	SOB	R1, LB8E2	; B8E6	DJNZ $B8E2	repeat
-				; B8E8	LD A,$7F
-	MOV	#025252, (R2)	; B8EA	LD (DE),A	write to the screen
-	POP	R2		; B8EB	POP DE
-	INC	R2		; B8EC	INC DE		next position on the screen
-	INC	R2
-	POP	R3		; B8ED	POP HL
-	BR	LB8C0		; B8EE	JR $B8C0
+	BIS	R0, (R2)		; mul by 3
+	ADD	R5, R2			; next line
+	SOB	R1, 1$			; repeat
+	MOV	#037777, (R2)		; write to the screen
+	SUB	#<64.*7.-2>, R2		; next position on the screen
+ 	BR	LB8C0
+;
+TDRSEL:
+	.WORD	TYELLO		; 0 -> 106  Draw glyph by bright yellow color
+	.WORD	TWHITE		; 1 -> 007  Draw glyph by white color
+	.WORD	TMAGEN		; 2 -> 003  Draw glyph by magenta color
+	.WORD	TWHITE		; 3 -> 107  Draw glyph by bright white color
 
 ;------------------------------------------------------------------------------
 
@@ -4611,14 +4647,14 @@ LB7B5:	.WORD	SCREEN+<32.*64.>+16.
 	.WORD	SCREEN+<104.*64.>+40.
 	.BYTE	131,212,123,137,136,144,142,137,134,143,212,377			; CONTROLS
 	.WORD	SCREEN+<128.*64.>+40.
-	.BYTE	132,112,377,000							; ' '
+	.BYTE	132,143,140,121,123,125,377,000					; 'SPACE'
 	.WORD	SCREEN+<144.*64.>+40.
 	.BYTE	132,140,377,000							; P
 	.WORD	SCREEN+<152.*64.>+40.
 	.BYTE	132,143,144,137,140,377						; STOP
 	.WORD	SCREEN+<0.*64.>+12.
-	.BYTE	130,312,130,131,127,130,147,121,151,115,115,125,136,123,137,145 ; HIGHWAY
-	.BYTE	136,144,125,142,312,377						; ENCOUNTER
+	.BYTE	130,212,130,131,127,130,147,121,151,115,115,125,136,123,137,145 ; HIGHWAY
+	.BYTE	136,144,125,142,212,377						; ENCOUNTER
 	.WORD	SCREEN+<8.*64.>+8.
 	.BYTE	130,212,123,134,121,143,143,131,126,131,125,124,115,131,136,126 ; CLASSIFIED
 	.BYTE	137,142,135,121,144,131,137,136,212,377				; INFORMATION
